@@ -1,0 +1,1756 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Persönlichkeits-Landkarte / Personality Map</title>
+<style>
+  * { box-sizing: border-box; }
+  body { color: var(--foreground, #1b1b1f); }
+  .pl { max-width: 1000px; }
+  h1 { font-size: 1.35em; margin: 0 0 2px 0; }
+  h2 { font-size: 1.05em; margin: 24px 0 6px 0; padding-bottom: 4px; border-bottom: 1px solid var(--border, #dcdce2); }
+  h3 { font-size: 0.95em; margin: 18px 0 2px 0; }
+  h4 { font-size: 0.9em; margin: 14px 0 4px 0; }
+  .muted { color: var(--muted-foreground, #6b6b76); }
+  p.hint { color: var(--muted-foreground, #6b6b76); font-size: 0.85em; margin: 2px 0 12px 0; line-height: 1.45; }
+
+  .langbar { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px 0; font-size: 0.82em; }
+  .switch { position: relative; width: 104px; height: 28px; border-radius: 16px; cursor: pointer;
+            border: 1px solid var(--border, #dcdce2); background: var(--card, #f4f4f7); user-select: none; }
+  .switch .knob { position: absolute; top: 2px; left: 2px; width: 50px; height: 22px; border-radius: 12px;
+            background: var(--accent, #4f7cff); transition: left .18s ease; }
+  .switch.en .knob { left: 51px; }
+  .switch span { position: absolute; top: 0; height: 28px; line-height: 28px; width: 52px; text-align: center;
+            font-size: 0.78em; font-weight: 600; z-index: 1; }
+  .switch span.de { left: 0; } .switch span.en { right: 0; }
+  .switch.de span.de, .switch.en span.en { color: #fff; }
+  .switch.de span.en, .switch.en span.de { color: var(--muted-foreground, #6b6b76); }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 4px 0; }
+  .tabs button { background: var(--card, #f4f4f7); color: var(--foreground, #1b1b1f);
+    border: 1px solid var(--border, #dcdce2); border-radius: 8px; padding: 8px 13px;
+    font-size: 0.86em; cursor: pointer; font-family: inherit; }
+  .tabs button.active { background: var(--accent, #4f7cff); color: #fff; border-color: var(--accent, #4f7cff); }
+  .panel { display: none; padding-top: 6px; }
+  .panel.active { display: block; }
+
+  .q { display: grid; grid-template-columns: minmax(200px, 1fr) auto; gap: 10px;
+       align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border, #dcdce2); font-size: 0.88em; }
+  .q .qtext { line-height: 1.35; }
+  .scale { display: flex; gap: 4px; }
+  .scale button { width: 30px; height: 28px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--border, #dcdce2); background: transparent;
+    color: var(--muted-foreground, #6b6b76); font-size: 0.82em; font-family: inherit; }
+  .scale button.on { background: var(--accent, #4f7cff); color: #fff; border-color: var(--accent, #4f7cff); }
+  .scalelegend { font-size: 0.76em; color: var(--muted-foreground, #6b6b76); margin: 2px 0 10px 0; }
+
+  .block { border: 1px solid var(--border, #dcdce2); border-radius: 10px; padding: 12px 14px;
+           background: var(--card, #f8f8fb); margin-bottom: 14px; }
+  .progress { font-size: 0.78em; color: var(--muted-foreground, #6b6b76); margin: 6px 0 0 0; }
+  .bar { height: 6px; background: var(--border, #dcdce2); border-radius: 4px; overflow: hidden; margin-top: 4px; max-width: 320px; }
+  .bar > div { height: 100%; background: var(--accent, #4f7cff); width: 0%; }
+
+  textarea { width: 100%; min-height: 64px; background: transparent; color: var(--foreground, #1b1b1f);
+    border: 1px solid var(--border, #dcdce2); border-radius: 6px; padding: 7px; font-size: 0.85em;
+    resize: vertical; font-family: inherit; }
+
+  .tags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 6px; }
+  .tag { border: 1px solid var(--border, #dcdce2); border-radius: 20px; padding: 6px 13px;
+         font-size: 0.84em; cursor: pointer; user-select: none; background: var(--card, #f4f4f7); }
+  .tag.on { background: var(--accent, #4f7cff); color: #fff; border-color: var(--accent, #4f7cff); }
+
+  button.btn { background: var(--accent, #4f7cff); color: #fff; border: none; border-radius: 7px;
+    padding: 8px 15px; font-size: 0.86em; cursor: pointer; margin: 6px 8px 0 0; font-family: inherit; }
+  button.btn.sec { background: transparent; color: var(--foreground, #1b1b1f); border: 1px solid var(--border, #dcdce2); }
+
+  .charts { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+  svg { max-width: 100%; height: auto; }
+
+  .summary { font-size: 0.9em; line-height: 1.55; }
+  .summary h3 { margin: 18px 0 4px 0; font-size: 1em; }
+  .summary ul, .summary ol { margin: 4px 0 4px 18px; padding: 0; }
+  .summary li { margin-bottom: 4px; }
+  .badge { display: inline-block; font-size: 0.78em; padding: 2px 8px; border-radius: 12px;
+           border: 1px solid var(--border, #dcdce2); margin-right: 5px; }
+  .warn { border-left: 3px solid #e0a106; padding: 8px 12px; background: var(--card, #f8f8fb);
+          border-radius: 0 6px 6px 0; font-size: 0.86em; margin-top: 12px; }
+  .todo { border-left: 3px solid var(--accent, #4f7cff); padding: 8px 12px; background: var(--card, #f8f8fb);
+          border-radius: 0 6px 6px 0; font-size: 0.86em; margin: 8px 0; }
+  table.scoretab { border-collapse: collapse; font-size: 0.84em; margin-top: 8px; }
+  table.scoretab th, table.scoretab td { border: 1px solid var(--border, #dcdce2); padding: 4px 9px; text-align: left; }
+  table.scoretab th { color: var(--muted-foreground, #6b6b76); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="pl">
+  <h1 id="plTitle"></h1>
+  <div class="langbar">
+    <span class="muted" id="langLabel"></span>
+    <div class="switch de" id="langSwitch" onclick="toggleLang()">
+      <div class="knob"></div><span class="de">DE</span><span class="en">EN</span>
+    </div>
+  </div>
+  <p class="hint" id="plIntro"></p>
+  <div class="tabs" id="tabs"></div>
+  <div id="panels"></div>
+  <div style="margin:22px 0;">
+    <button class="btn sec" id="btnExp" onclick="exportJSON()"></button>
+    <button class="btn sec" id="btnImp" onclick="document.getElementById('importFile').click()"></button>
+    <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importJSON(event)">
+    <button class="btn sec" id="btnPrint" onclick="window.print()"></button>
+    <button class="btn sec" id="btnReset" onclick="resetAll()"></button>
+    <div class="progress" id="saveStatus"></div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   Persönlichkeits-Landkarte / Personality Map  ·  v4, zweisprachig
+   Struktur: sprachunabhängige Schlüssel + Inhalt je Sprache in C.de / C.en
+   Antwort-IDs sind sprachunabhängig, der Sprachwechsel erhält alle Antworten.
+   ===================================================================== */
+
+const DIMKEYS = ['staerken','gestaltung','autonomie','kompetenz','verbundenheit','belastbarkeit','zufriedenheit'];
+const DOMKEYS = ['fam','job','fri','fre'];
+const DOMCOLOR = {fam:'#e8705a', job:'#4f7cff', fri:'#2fa37c', fre:'#a46ddb'};
+const C = {de:{}, en:{}};
+
+/* ---------------------------------------------------------------- DE: UI */
+C.de.ui = {
+  title:'🧭 Persönlichkeits-Landkarte nach Lebensbereichen',
+  langLabel:'Sprache / Language:',
+  intro:'Vier Lebensbereiche werden mit jeweils eigenen, zugeschnittenen Fragen erfasst, dazu ein übergreifender Teil zu Selbstbild, Werten und Fähigkeiten. Jede Frage wird angeklickt (1 = trifft gar nicht zu … 5 = trifft völlig zu); nicht beantwortete Fragen fließen nicht in die Auswertung ein. Im Tab <b>Auswertung</b> entsteht daraus eine Landkarte plus eine automatisch erzeugte Persönlichkeitsskizze. Alles läuft in dieser einen Datei – kein Internet, keine Installation. Antworten werden nur lokal in diesem Browser gespeichert.',
+  legend:'1 = trifft gar nicht zu · 2 = trifft kaum zu · 3 = teilweise · 4 = trifft überwiegend zu · 5 = trifft völlig zu · (nochmal klicken = Antwort löschen)',
+  glossarySummary:'Was die sieben Dimensionen dieses Fragebogens bedeuten',
+  progress:'{done} von {tot} Fragen beantwortet',
+  tabSum:'📊 Auswertung & Persönlichkeitsskizze',
+  tabGen:'Allgemein: Selbstbild, Werte & Fähigkeiten',
+  txtStr:'Meine 3 größten Stärken in diesem Bereich',
+  txtStrP:'z. B. Geduld, Humor, Organisationstalent...',
+  txtSch:'Was mir in diesem Bereich schwerfällt',
+  txtSchP:'z. B. Grenzen setzen, Kritik annehmen, Zeitmangel...',
+  txtRes:'Meine Ressourcen in diesem Bereich (wer oder was trägt mich hier?)',
+  txtResP:'z. B. Partnerin, Schwester, Verein, Erfahrung, Routinen...',
+  txtZielP:'Konkretes Ziel + nächster Schritt + bis wann...',
+  smart:'(SMART: spezifisch, messbar, attraktiv, realistisch, terminiert)',
+  genIntro:'Diese Fragen sind nicht an einen einzelnen Lebensbereich gebunden, sondern beschreiben dich als Person über alle Bereiche hinweg. Sie werden in der Auswertung als eigene Blöcke ausgewiesen.',
+  hSelbstwert:'Selbstwertgefühl (10 Items, angelehnt an die Rosenberg-Skala)',
+  hBigfive:'Persönlichkeitskern (Big Five)',
+  hSkills:'Kenntnisse & Fähigkeiten (Selbsteinschätzung)',
+  hSkillsTxt:'Konkrete Qualifikationen, Zertifikate, Erfahrungen',
+  hSkillsTxtP:'Ausbildung, Weiterbildungen, besondere Erfahrungen, Sprachen (Niveau)...',
+  hWerte:'Meine Werte — was leitet mich? (idealerweise 5 auswählen)',
+  werteCount:'{n} ausgewählt',
+  werteHint:' — für Klarheit lieber auf 5 begrenzen',
+  btnExp:'Antworten als Datei sichern',
+  btnImp:'Antworten laden',
+  btnPrint:'Drucken / als PDF speichern',
+  btnReset:'Alles zurücksetzen',
+  saved:'Zuletzt gespeichert: {t}',
+  loaded:'Gespeicherte Antworten geladen.',
+  nosave:'Noch keine Antworten gespeichert.',
+  importErr:'Datei konnte nicht gelesen werden.',
+  resetAsk:'Wirklich alle Antworten löschen?',
+  dlRadar:'Landkarte als Bild speichern',
+  chartBalance:'Balance der Lebensbereiche',
+  chartDims:'Dimensionen über alle Bereiche hinweg',
+  chartPers:'Selbstwert & Persönlichkeitskern',
+  chartSkills:'Kenntnisse & Fähigkeiten',
+  labelSelbstwert:'Selbstwertgefühl',
+  noData:'keine Angabe',
+  radarHint:'Sieben Dimensionen, in jedem Lebensbereich getrennt erhoben. Durchgezogene Fläche = Bereich vollständig beantwortet, gestrichelt = teilweise.',
+  hRadar:'Landkarte: die vier Lebensbereiche im Vergleich',
+  hGloss:'Begriffsklärung: was die sieben Dimensionen bedeuten',
+  glossIntro:'Diese sieben Dimensionen bilden die Achsen der Landkarte. Sie wurden in jedem Lebensbereich mit eigenen, zugeschnittenen Fragen erhoben.',
+  hTable:'Alle Werte im Überblick',
+  tabDim:'Dimension', tabAvg:'Ø', tabTotal:'Gesamt',
+  hZiele:'Deine Ziele',
+  hSketch:'📝 Deine Persönlichkeitsskizze',
+  hEval:'Auswertung & Persönlichkeitsskizze',
+  pendingPers:'<b>Noch offen:</b> Selbstwert und Persönlichkeitskern sind noch nicht (vollständig) beantwortet. Du findest diese Fragen im Tab <b>„Allgemein: Selbstbild, Werte &amp; Fähigkeiten“</b>. Ohne sie fehlen in der Skizze die Abschnitte zu Selbstwert, Persönlichkeit und die Querverbindungen zwischen beiden.',
+  pendingSkills:'<b>Noch offen:</b> Die Selbsteinschätzung der Kenntnisse &amp; Fähigkeiten im Tab <b>„Allgemein“</b> ist noch leer.',
+  pendingWerte:'<b>Noch offen:</b> Im Tab <b>„Allgemein“</b> sind noch keine Werte ausgewählt.',
+  disclaimer:'<b>Einordnung:</b> Dies ist ein Selbstreflexions-Instrument, kein validiertes diagnostisches Testverfahren. Die Fragen sind an etablierte Modelle angelehnt (Big Five, VIA-Stärkenkonzept, Selbstbestimmungstheorie nach Deci &amp; Ryan, Rosenberg-Selbstwertskala, Ressourcenorientierung nach Antonovsky und Grawe), die Auswertung ist jedoch eine strukturierte Rückmeldung deiner eigenen Einschätzungen. Bei anhaltend gedrückter Stimmung, starker Erschöpfung, anhaltender Einsamkeit oder sehr niedrigem Selbstwert: sprich mit deiner Hausarztpraxis oder einer Psychotherapeutin bzw. einem Psychotherapeuten. Außerhalb der Sprechzeiten hilft der ärztliche Bereitschaftsdienst unter <b>116 117</b>; bei akuter Gefahr oder Suizidgedanken sofort <b>112</b> oder Telefonseelsorge <b>0800 111 0 111</b>.'
+};
+
+/* ---------------------------------------------------------------- DE: Achsen + Definitionen */
+C.de.axis = {staerken:'Stärken', gestaltung:'Gestaltung', autonomie:'Autonomie', kompetenz:'Kompetenz',
+  verbundenheit:'Verbundenheit', belastbarkeit:'Belastbarkeit', zufriedenheit:'Zufriedenheit'};
+
+C.de.dimdef = {
+  staerken: {
+    kurz:'Was du in diesem Bereich konkret kannst.',
+    lang:'Erlernte Fähigkeiten und Fertigkeiten, die du in diesem Lebensbereich tatsächlich einsetzt: zuhören, Konflikte klären, organisieren, fachlich sicher arbeiten, ein Hobby beherrschen. Gemeint ist das Handwerkszeug selbst, nicht das Gefühl dabei.',
+    hoch:'du verfügst dort über ein belastbares Repertoire und weißt, was du kannst',
+    niedrig:'dir fehlt dort Übung, Gelegenheit oder das Zutrauen in das eigene Können',
+    wirkung:'Solche Fähigkeiten sind übertragbar: Was du in einem Bereich kannst, lässt sich meist auch anderswo einsetzen.',
+    mangel:'Fehlende Fähigkeiten sind der am leichtesten veränderbare Punkt der ganzen Landkarte, weil sie schlicht erlernbar sind.',
+    hebel:'Fähigkeiten lassen sich gezielt aufbauen: eine konkrete Fertigkeit auswählen, eine Lernquelle festlegen, üben.',
+    quelle:'Stärken- und Ressourcenkonzepte, u. a. VIA-Klassifikation (Peterson &amp; Seligman) sowie die Unterscheidung von Talenten, Skills und Ressourcen bei Niemiec'
+  },
+  gestaltung: {
+    kurz:'Wie aktiv du den Bereich formst, statt ihn nur zu erleben.',
+    lang:'Initiative und bewusste Pflege: Rituale schaffen, Kontakt halten, Ideen einbringen, Freizeit planen, Dinge ansprechen. Die Frage dahinter lautet: Gestaltest du diesen Bereich – oder passiert er dir?',
+    hoch:'du nimmst diesen Bereich aktiv in die Hand und überlässt ihn nicht dem Zufall',
+    niedrig:'der Bereich läuft eher nebenher, von außen bestimmt oder aus Gewohnheit',
+    wirkung:'Aktives Gestalten erhöht Zufriedenheit und Kontrollerleben, auch wenn sich die Umstände selbst nicht ändern.',
+    mangel:'Wo du nicht gestaltest, entscheiden andere oder die Umstände für dich. Das erzeugt mit der Zeit das Gefühl, nur noch zu reagieren.',
+    hebel:'Eine einzige wiederkehrende Handlung festlegen und terminieren wirkt hier mehr als große Vorsätze.',
+    quelle:'Konzepte proaktiver Lebensgestaltung und des Job Crafting (Wrzesniewski &amp; Dutton)'
+  },
+  autonomie: {
+    kurz:'Das Erleben, aus eigenem Willen zu handeln.',
+    lang:'Selbst entscheiden können, zu eigenen Werten stehen, Nein sagen dürfen, man selbst sein können. Wichtig: Autonomie ist nicht dasselbe wie Unabhängigkeit oder Alleinsein – man kann in einer sehr engen Bindung hoch autonom sein, solange sich das eigene Handeln als selbst gewählt anfühlt.',
+    hoch:'dein Handeln fühlt sich dort als deines an, nicht als auferlegt',
+    niedrig:'du erlebst dich dort als fremdbestimmt, angepasst oder unter Erwartungsdruck',
+    wirkung:'Autonomie ist einer der stärksten Schutzfaktoren gegen das Gefühl von Ausgeliefertsein und gegen Erschöpfung.',
+    mangel:'Dauerhaft geringe Autonomie führt zu innerem Rückzug: Man funktioniert noch, ist innerlich aber nicht mehr beteiligt.',
+    hebel:'Einen konkreten, kleinen Entscheidungsspielraum zurückholen und benennen wirkt mehr als eine große Grundsatzdebatte.',
+    quelle:'Grundbedürfnis der Selbstbestimmungstheorie (Deci &amp; Ryan)'
+  },
+  kompetenz: {
+    kurz:'Das Erleben von Wirksamkeit: Ich schaffe das, ich sehe Ergebnisse.',
+    lang:'Hier geht es nicht um objektives Können (das ist die Dimension „Stärken“), sondern um das Gefühl, etwas zu bewirken: Ergebnisse sehen, Rückmeldung bekommen, sich den Aufgaben gewachsen fühlen, weder unter- noch überfordert sein.',
+    hoch:'du erlebst dich dort als wirksam und bekommst Bestätigung dafür',
+    niedrig:'du zweifelst dort an deiner Wirkung, bekommst wenig Rückmeldung oder bist dauerhaft über- bzw. unterfordert',
+    wirkung:'Wirksamkeitserleben ist die Hauptquelle von Selbstvertrauen und speist sich vor allem aus eigenen Erfolgserfahrungen.',
+    mangel:'Ohne Rückmeldung verliert man das Maß für die eigene Wirkung – unabhängig davon, wie gut man tatsächlich ist.',
+    hebel:'Aktiv um konkretes Feedback bitten und kleine, abschließbare Aufgaben sichtbar machen.',
+    quelle:'Grundbedürfnis der Selbstbestimmungstheorie (Deci &amp; Ryan) sowie Selbstwirksamkeit (Bandura)'
+  },
+  verbundenheit: {
+    kurz:'Zugehörigkeit und Nähe: sich gesehen, angenommen und getragen fühlen.',
+    lang:'Verlässliche Beziehungen, Zusammenhalt in schwierigen Zeiten, jemanden haben, dem man auch Schwieriges anvertrauen kann. Gemessen wird die erlebte Qualität, nicht die Anzahl der Kontakte: Wenige enge Beziehungen können hohe Werte ergeben, ein großer Bekanntenkreis niedrige.',
+    hoch:'du fühlst dich dort zugehörig und getragen',
+    niedrig:'du erlebst dort Distanz, Einsamkeit oder das Gefühl, außen vor zu sein',
+    wirkung:'Soziale Eingebundenheit gehört zu den am besten belegten Schutzfaktoren für körperliche und psychische Gesundheit.',
+    mangel:'Anhaltende Einsamkeit ist ein eigenständiger Gesundheitsrisikofaktor und kein persönliches Versagen.',
+    hebel:'Regelmäßigkeit schlägt Intensität: ein wiederkehrender Termin mit denselben Menschen wirkt stärker als viele Einzelkontakte.',
+    quelle:'Grundbedürfnis der Selbstbestimmungstheorie (Deci &amp; Ryan), Bindungs- und Einsamkeitsforschung'
+  },
+  belastbarkeit: {
+    kurz:'Wie gut die Last dieses Bereichs für dich aktuell tragbar ist.',
+    lang:'Achtung vor einem Missverständnis: Hohe Werte bedeuten nicht, dass du viel aushältst, sondern dass das Verhältnis von Anforderungen und Erholung gerade stimmt. Erfasst werden Pensum, Abschaltenkönnen, Erholung und die Verteilung der Last auf mehrere Schultern.',
+    hoch:'die Anforderungen dieses Bereichs sind für dich derzeit gut tragbar',
+    niedrig:'dieser Bereich zehrt an dir, Erholung kommt zu kurz',
+    wirkung:'Tragbare Belastung ist die Voraussetzung dafür, dass die anderen sechs Dimensionen überhaupt wirken können.',
+    mangel:'Niedrige Werte ziehen mittelfristig alle anderen Dimensionen mit nach unten – Erschöpfung frisst zuerst Gestaltung und Zufriedenheit.',
+    hebel:'Zuerst entlasten, dann optimieren: eine Aufgabe abgeben, streichen oder neu verhandeln – und Erholung wie einen Termin behandeln.',
+    quelle:'Belastungs-Beanspruchungs-Modelle der Arbeitspsychologie, Ressourcenerhaltungstheorie (Hobfoll), Erholungsforschung'
+  },
+  zufriedenheit: {
+    kurz:'Die Gesamtbewertung des Bereichs: Zufriedenheit, Sinn und Zuversicht.',
+    lang:'Wie zufrieden du mit diesem Lebensbereich insgesamt bist, ob er dir sinnvoll erscheint und ob du zuversichtlich in die nächste Zeit blickst. Das ist die Ergebnisgröße der Landkarte: Sie folgt meist aus den sechs anderen Dimensionen, statt unabhängig von ihnen zu sein.',
+    hoch:'dieser Bereich stimmt für dich und gibt dir Sinn',
+    niedrig:'dieser Bereich stimmt derzeit nicht für dich',
+    wirkung:'Hohe Zufriedenheit trotz niedriger Einzelwerte spricht für Sinnerleben oder Genügsamkeit – kann aber auch Überlastung verdecken.',
+    mangel:'Niedrige Zufriedenheit ist selten diffus: Meist lässt sie sich auf eine der sechs anderen Dimensionen zurückführen – und die ist konkreter veränderbar als das Gefühl selbst.',
+    hebel:'Prüfen, welche der sechs anderen Dimensionen in diesem Bereich am niedrigsten liegt, und dort ansetzen.',
+    quelle:'Lebenszufriedenheits- und Wohlbefindensforschung (u. a. Diener, Ryff)'
+  }
+};
+
+/* ---------------------------------------------------------------- DE: Lebensbereiche */
+C.de.dom = {
+  fam: {
+    label:'Familie & Partnerschaft',
+    intro:'Fragen zu deinem engsten Kreis: Partnerschaft, Kinder, Eltern, Geschwister, Wahlfamilie. Wenn du aktuell keine Partnerschaft hast, beziehe die Fragen auf deine Familie bzw. engsten Bezugspersonen.',
+    goal:'Dein Ziel für Familie & Partnerschaft',
+    groups: {
+      staerken: {title:'Stärken & Fähigkeiten in Familie/Partnerschaft', items:[
+        'Ich kann gut zuhören und auf die Bedürfnisse meiner Angehörigen eingehen.',
+        'Ich kann Konflikte ansprechen, ohne verletzend zu werden.',
+        'Ich bin für meine Angehörigen zuverlässig und übernehme Verantwortung.',
+        'Ich kann Zuneigung und Wertschätzung aktiv zeigen.']},
+      gestaltung: {title:'Nähe, Kommunikation & Gestaltung', items:[
+        'Ich spreche offen über meine Gefühle und Bedürfnisse.',
+        'Bei uns wird ehrlich und respektvoll miteinander geredet.',
+        'Ich erlebe emotionale (und, wenn relevant, körperliche) Nähe als erfüllend.',
+        'Wir gestalten bewusst gemeinsame Zeit und Rituale.']},
+      autonomie: {title:'Autonomie & eigener Raum', items:[
+        'In meiner Familie/Partnerschaft kann ich wirklich ich selbst sein.',
+        'Ich kann eigene Entscheidungen treffen, ohne mich schuldig zu fühlen.',
+        'Ich habe genügend eigenen Raum und Zeit für mich.',
+        'Ich kann Nein sagen, wenn mir etwas zu viel wird.']},
+      kompetenz: {title:'Kompetenzerleben & Anerkennung', items:[
+        'Ich fühle mich meiner Rolle in der Familie/Partnerschaft gewachsen.',
+        'Was ich für meine Angehörigen tue, wird gesehen und geschätzt.',
+        'Ich traue mir zu, auch schwierige familiäre Situationen zu bewältigen.']},
+      verbundenheit: {title:'Verbundenheit & Zusammenhalt', items:[
+        'Ich fühle mich geliebt und angenommen, so wie ich bin.',
+        'Es gibt mindestens eine Person, mit der ich alles teilen kann.',
+        'Wenn es schwierig wird, erleben wir Zusammenhalt.',
+        'Ich fühle mich in diesem Bereich nicht einsam.']},
+      belastbarkeit: {title:'Belastung & Erholung', items:[
+        'Ich fühle mich durch familiäre Pflichten selten überfordert.',
+        'Ungelöste Konflikte beschäftigen mich kaum über längere Zeit.',
+        'Nach familiären Belastungen kann ich mich gut erholen.',
+        'Ich trage die Verantwortung in der Familie nicht überwiegend allein.']},
+      zufriedenheit: {title:'Zufriedenheit & Sinn', items:[
+        'Insgesamt bin ich mit meinem Familien-/Partnerschaftsleben zufrieden.',
+        'Dieser Lebensbereich gibt meinem Leben Sinn.',
+        'Ich blicke in diesem Bereich zuversichtlich in die nächsten Jahre.']}
+    }
+  },
+  job: {
+    label:'Arbeit & Beruf',
+    intro:'Fragen zu Erwerbsarbeit, Ausbildung, Studium oder Hauptbeschäftigung (auch Care-Arbeit, wenn sie deine Haupttätigkeit ist).',
+    goal:'Dein Ziel für Arbeit & Beruf',
+    groups: {
+      staerken: {title:'Fachliche & überfachliche Stärken', items:[
+        'Ich beherrsche die fachlichen Anforderungen meiner Tätigkeit sicher.',
+        'Ich arbeite strukturiert und bringe Aufgaben zuverlässig zu Ende.',
+        'Ich kann gut im Team zusammenarbeiten und kommunizieren.',
+        'Ich kann Probleme analysieren und praktikable Lösungen finden.']},
+      gestaltung: {title:'Gestaltung & Entwicklung', items:[
+        'Ich kann meine Stärken in meiner Arbeit regelmäßig einsetzen.',
+        'Ich kann Inhalte und Abläufe meiner Arbeit mitgestalten.',
+        'Ich entwickle mich beruflich weiter (Lernen, Qualifikation).',
+        'Ich bringe eigene Ideen ein und werde damit gehört.']},
+      autonomie: {title:'Autonomie & Werte-Passung', items:[
+        'Ich kann weitgehend selbst entscheiden, wie ich meine Arbeit erledige.',
+        'Ich habe Einfluss auf Arbeitszeit, Tempo oder Pausen.',
+        'Meine Arbeit passt zu meinen eigenen Werten.',
+        'Ich kann Aufgaben ablehnen oder abgeben, wenn es zu viel wird.']},
+      kompetenz: {title:'Wirksamkeit & Rückmeldung', items:[
+        'Ich erlebe mich bei der Arbeit als wirksam und erfolgreich.',
+        'Ich bekomme ausreichend Rückmeldung über meine Leistung.',
+        'Ich traue mir neue berufliche Herausforderungen zu.',
+        'Meine Qualifikation passt zu meinen Aufgaben (weder unter- noch überfordert).']},
+      verbundenheit: {title:'Kollegialität & Zugehörigkeit', items:[
+        'Ich fühle mich von Kolleg*innen geschätzt und unterstützt.',
+        'Mit meiner Führungskraft bzw. meinem Umfeld habe ich ein gutes Verhältnis.',
+        'Ich fühle mich meinem Arbeitsumfeld zugehörig.',
+        'Konflikte am Arbeitsplatz werden fair geklärt.']},
+      belastbarkeit: {title:'Belastung, Abschalten & Balance', items:[
+        'Mein Arbeitspensum ist für mich gut zu bewältigen.',
+        'Ich kann nach der Arbeit gedanklich abschalten.',
+        'Am Ende eines Arbeitstages bin ich meist nicht völlig ausgelaugt.',
+        'Arbeit und Privatleben sind bei mir gut ausbalanciert.']},
+      zufriedenheit: {title:'Zufriedenheit & Sinn', items:[
+        'Insgesamt bin ich mit meiner beruflichen Situation zufrieden.',
+        'Meine Arbeit erlebe ich als sinnvoll.',
+        'Meine Arbeit wird angemessen honoriert (Gehalt, Anerkennung, Sicherheit).',
+        'Ich blicke beruflich zuversichtlich in die Zukunft.']}
+    }
+  },
+  fri: {
+    label:'Freunde',
+    intro:'Fragen zu Freundschaften, Bekanntenkreis und sozialem Netz außerhalb von Familie und Arbeit.',
+    goal:'Dein Ziel für Freundschaften',
+    groups: {
+      staerken: {title:'Soziale Fähigkeiten', items:[
+        'Ich kann recht leicht Kontakt zu neuen Menschen aufnehmen.',
+        'Ich bin ein verlässlicher Freund bzw. eine verlässliche Freundin.',
+        'Ich kann gut zuhören und für andere da sein.',
+        'Ich kann Konflikte in Freundschaften ansprechen und klären.']},
+      gestaltung: {title:'Kontaktpflege & Grenzen', items:[
+        'Ich melde mich aktiv bei Freunden und halte Kontakt.',
+        'Ich treffe meine Freunde so oft, wie ich es mir wünsche.',
+        'Ich kann in Freundschaften auch Grenzen setzen und Nein sagen.',
+        'Ich investiere bewusst Zeit in die Freundschaften, die mir wichtig sind.']},
+      autonomie: {title:'Echtheit & Selbstbestimmung', items:[
+        'In Freundschaften kann ich mich zeigen, wie ich wirklich bin.',
+        'Ich passe mich nicht übermäßig an, um gemocht zu werden.',
+        'Ich entscheide selbst, mit wem ich meine Zeit verbringe.',
+        'Ich kann unterschiedliche Meinungen vertreten, ohne Angst vor Ablehnung.']},
+      kompetenz: {title:'Soziale Sicherheit', items:[
+        'Ich fühle mich in sozialen Situationen und Gruppen sicher.',
+        'Ich habe das Gefühl, für meine Freunde eine Bereicherung zu sein.',
+        'Ich kann auch Small Talk und neue Gruppen gut bewältigen.']},
+      verbundenheit: {title:'Nähe & Verlässlichkeit', items:[
+        'Ich habe Freunde, die mich wirklich kennen und verstehen.',
+        'Im Notfall kann ich mich auf meine Freunde verlassen.',
+        'Ich fühle mich in meinem Freundeskreis zugehörig, nicht außen vor.',
+        'Es gibt Menschen, mit denen ich auch über Schwieriges sprechen kann.']},
+      belastbarkeit: {title:'Belastung & Einsamkeit', items:[
+        'Ich fühle mich in Freundschaften selten ausgenutzt.',
+        'Ich leide nicht unter Einsamkeit.',
+        'Enttäuschungen in Freundschaften kann ich gut verarbeiten.',
+        'Soziale Kontakte kosten mich nicht mehr Kraft, als sie mir geben.']},
+      zufriedenheit: {title:'Zufriedenheit & Sinn', items:[
+        'Insgesamt bin ich mit meinem Freundeskreis zufrieden.',
+        'Die Qualität meiner Freundschaften ist gut (nicht nur die Anzahl).',
+        'Meine Freundschaften geben mir Kraft und Freude.']}
+    }
+  },
+  fre: {
+    label:'Freizeit & Gesundheit',
+    intro:'Fragen zu Freizeit, Interessen, Erholung und Gesundheit – also zu dem Teil deines Lebens, der weder Familie noch Arbeit noch Freundeskreis ist.',
+    goal:'Dein Ziel für Freizeit, Gesundheit & Erholung',
+    groups: {
+      staerken: {title:'Interessen & Fähigkeiten in der Freizeit', items:[
+        'Ich habe Hobbys oder Interessen, in denen ich etwas gut kann.',
+        'Ich gestalte, baue, schreibe, musiziere oder bin anderweitig kreativ.',
+        'Ich bewege mich regelmäßig oder treibe Sport.',
+        'Ich lerne in meiner Freizeit Dinge, die mich interessieren.']},
+      gestaltung: {title:'Gestaltung & Selbstfürsorge', items:[
+        'Ich gestalte meine Freizeit bewusst und nicht nur aus der „Restzeit“.',
+        'Ich nehme mir regelmäßig Zeit für Erholung.',
+        'Ich achte auf meine Gesundheit (Schlaf, Ernährung, Bewegung).',
+        'Ich probiere gerne Neues aus.']},
+      autonomie: {title:'Autonomie in der freien Zeit', items:[
+        'Ich entscheide selbst, wie ich meine freie Zeit nutze.',
+        'Ich lasse mich in der Freizeit nicht von Erwartungen anderer bestimmen.',
+        'Ich kann Termine und Verpflichtungen auch einmal absagen.']},
+      kompetenz: {title:'Flow & Fortschritt', items:[
+        'In meinen Hobbys erlebe ich Momente völliger Versunkenheit (Flow).',
+        'Ich mache in meinen Interessen erkennbare Fortschritte.',
+        'Ich traue mir zu, auch neue Aktivitäten zu lernen.']},
+      verbundenheit: {title:'Gemeinschaft & Verbundenheit', items:[
+        'Ich teile meine Interessen mit anderen (Verein, Gruppe, Community).',
+        'Ich erlebe in meiner Freizeit Gemeinschaft.',
+        'Ich fühle mich mit Natur, Kultur oder etwas Größerem verbunden.']},
+      belastbarkeit: {title:'Erholung & Energie', items:[
+        'Ich habe genügend freie Zeit für mich.',
+        'Ich schaffe es, in der Freizeit wirklich abzuschalten.',
+        'Ich fühle mich im Alltag meist ausgeruht und erholt.',
+        'Mein Medien- und Handykonsum raubt mir nicht die Erholung.']},
+      zufriedenheit: {title:'Zufriedenheit & Sinn', items:[
+        'Insgesamt bin ich mit meiner Freizeitgestaltung zufrieden.',
+        'Meine Freizeit gibt mir Energie für die anderen Lebensbereiche.',
+        'Ich erlebe meine Freizeit als sinnerfüllt, nicht nur als Zeitvertreib.']}
+    }
+  }
+};
+
+/* ---------------------------------------------------------------- DE: übergreifend */
+C.de.selbstwert = [
+  'Alles in allem bin ich mit mir selbst zufrieden.',
+  'Ich bin überzeugt, mehrere gute Eigenschaften zu haben.',
+  'Ich kann die Dinge genauso gut wie die meisten anderen Menschen.',
+  'Ich habe einiges, auf das ich stolz sein kann.',
+  'Ich fühle mich nur selten nutzlos.',
+  'Ich fühle, dass ich ein wertvoller Mensch bin — gleichwertig mit anderen.',
+  'Ich habe Respekt vor mir selbst.',
+  'Auch wenn etwas misslingt, sehe ich mich nicht als gescheitert an.',
+  'Ich habe eine positive Einstellung zu mir selbst.',
+  'Mein Selbstwert bleibt stabil, auch wenn andere mich kritisieren.'
+];
+
+C.de.bigfive = [
+  {dim:'Offenheit', items:[
+    'Ich bin neugierig, offen für neue Erfahrungen und Ideen.',
+    'Ich bin für Kunst, Musik, Natur oder ungewöhnliche Gedanken empfänglich.']},
+  {dim:'Gewissenhaftigkeit', items:[
+    'Ich bin gründlich, zuverlässig und halte Zusagen ein.',
+    'Ich plane vorausschauend und bringe Aufgaben auch bei Unlust zu Ende.']},
+  {dim:'Extraversion', items:[
+    'Ich bin gesellig, gehe auf andere zu und übernehme gern eine aktive Rolle.',
+    'Ich bin energiegeladen und meist fröhlich gestimmt.']},
+  {dim:'Verträglichkeit', items:[
+    'Ich bin rücksichtsvoll, hilfsbereit und mitfühlend.',
+    'Ich gehe Konflikte kooperativ an und vertraue anderen Menschen.']},
+  {dim:'Emot. Stabilität', items:[
+    'Ich bleibe unter Druck meist ruhig und werde nicht leicht reizbar.',
+    'Rückschläge und Stress werfen mich nicht lange aus der Bahn.']}
+];
+
+C.de.skills = ['Fachliche / berufliche Kenntnisse','Handwerkliche / technische Fähigkeiten',
+  'Soziale / kommunikative Fähigkeiten','Kreative Fähigkeiten','Sprachen','Digitale / IT-Kenntnisse',
+  'Organisatorische Fähigkeiten','Körperliche / sportliche Fähigkeiten','Führung & Verantwortung',
+  'Problemlösen & Analyse','Finanz- & Haushaltskompetenz','Gesundheitskompetenz & Selbstfürsorge',
+  'Konfliktfähigkeit','Zeit- & Selbstmanagement'];
+
+C.de.werte = ['Selbstbestimmung','Sicherheit','Leistung','Genuss','Abwechslung','Tradition','Zugehörigkeit',
+  'Fürsorge','Gerechtigkeit','Einfluss','Spiritualität','Familie','Gesundheit','Freiheit','Kreativität',
+  'Nachhaltigkeit','Ehrlichkeit','Wissen'];
+
+C.de.tipps = {
+  fam: {
+    staerken:'Benenne eine Situation der letzten Woche, in der du in der Familie etwas gut gemacht hast – und wiederhole sie bewusst.',
+    gestaltung:'Vereinbare ein festes, kleines Ritual (z. B. 20 Minuten ungestörtes Gespräch pro Woche) statt großer Vorsätze.',
+    autonomie:'Formuliere eine konkrete Bitte um eigenen Raum („Ich brauche am Sonntagmorgen zwei Stunden für mich“) statt Andeutungen.',
+    kompetenz:'Sprich an, dass du Rückmeldung brauchst – und sage selbst laut, was du beiträgst.',
+    verbundenheit:'Suche gezielt die Person, mit der Nähe am leichtesten geht, und investiere dort zuerst.',
+    belastbarkeit:'Schreibe eine Woche lang auf, welche Aufgaben bei dir hängen – und verhandle zwei davon neu.',
+    zufriedenheit:'Prüfe, ob die Unzufriedenheit an einer konkreten Sache hängt (Zeit, Konflikt, Rollenverteilung) – das ist verhandelbarer als „alles“.'
+  },
+  job: {
+    staerken:'Schreibe drei Aufgaben auf, die dir leichtfallen, und suche eine Rolle, in der sie häufiger vorkommen.',
+    gestaltung:'Bring einen konkreten Verbesserungsvorschlag ins nächste Teamgespräch ein – Gestaltungsspielraum entsteht oft erst beim Nachfragen.',
+    autonomie:'Kläre mit der Führungskraft, welche Entscheidungen du ohne Rückfrage treffen darfst.',
+    kompetenz:'Bitte aktiv um ein Feedbackgespräch mit zwei Fragen: Was läuft gut? Was soll ich ändern?',
+    verbundenheit:'Investiere in eine kollegiale Verbindung (gemeinsame Pause, Mittagessen) – Zugehörigkeit senkt das Belastungserleben.',
+    belastbarkeit:'Prüfe Arbeitszeiterfassung, Pausen und Erreichbarkeit nach Dienstschluss; anhaltende Erschöpfung gehört arbeitsmedizinisch bzw. ärztlich abgeklärt.',
+    zufriedenheit:'Unterscheide: Inhalt, Bedingungen oder Menschen? Nur eines davon muss sich meist ändern, nicht der ganze Job.'
+  },
+  fri: {
+    staerken:'Du musst nicht extrovertiert sein: ein verlässliches Treffen zu zweit schlägt zehn oberflächliche Kontakte.',
+    gestaltung:'Lege zwei Namen fest und schlage diesen Monat ein konkretes Datum vor – Freundschaft lebt von Initiative.',
+    autonomie:'Teste bewusst eine kleine Abgrenzung („Heute passt es mir nicht“) und beobachte, dass die Beziehung das trägt.',
+    kompetenz:'Gehe in eine Gruppe mit klarer Aufgabe (Sport, Ehrenamt, Kurs) – Struktur nimmt sozialen Druck.',
+    verbundenheit:'Teile einmal etwas Persönliches zuerst; Nähe entsteht meist über diesen ersten Schritt.',
+    belastbarkeit:'Prüfe Freundschaften nach dem Gefühl „danach habe ich mehr oder weniger Energie“ und gewichte entsprechend.',
+    zufriedenheit:'Wenn du Einsamkeit spürst: ein neuer regelmäßiger Termin pro Woche verändert mehr als viele einzelne Kontakte.'
+  },
+  fre: {
+    staerken:'Nimm ein altes Interesse wieder auf, statt ein neues zu suchen – der Einstieg ist dort niedriger.',
+    gestaltung:'Trage Erholung wie einen Termin in den Kalender ein, sonst besetzt sie nur die Restzeit.',
+    autonomie:'Streiche eine Verpflichtung, die du nur aus Gewohnheit erfüllst.',
+    kompetenz:'Suche eine Tätigkeit mit klarem Fortschritt (Instrument, Sport, Handwerk) – Flow entsteht bei passender Schwierigkeit.',
+    verbundenheit:'Verbinde Interesse und Kontakt: Gruppe, Verein oder Kurs statt Hobby allein.',
+    belastbarkeit:'Prüfe Schlafdauer, Bildschirmzeit am Abend und Bewegung – die drei wirken am schnellsten auf Erholung.',
+    zufriedenheit:'Plane eine Aktivität pro Woche, die ausschließlich dir dient und keinen Zweck erfüllen muss.'
+  }
+};
+
+C.de.bands = {5:'sehr hoch', 4:'hoch', 3:'mittel', 2:'niedrig', 1:'sehr niedrig', 0:'keine Angabe'};
+C.de.bandAdj = {5:'sehr hohen', 4:'hohen', 3:'mittleren', 2:'niedrigen', 1:'sehr niedrigen', 0:'nicht erfassten'};
+C.de.arch = {
+  staerken:'ein Mensch, der sich auf das eigene Können verlassen kann',
+  gestaltung:'ein Mensch, der Dinge aktiv in die Hand nimmt',
+  autonomie:'ein Mensch, der aus eigenem Antrieb handelt und sich treu bleibt',
+  kompetenz:'ein Mensch, der Wirkung sucht und Ergebnisse sehen will',
+  verbundenheit:'ein Mensch, der über Beziehungen Halt findet und gibt',
+  belastbarkeit:'ein Mensch, dessen Leben derzeit in einem tragbaren Gleichgewicht steht',
+  zufriedenheit:'ein Mensch, der seinen Lebensbereichen Sinn abgewinnen kann'
+};
+C.de.bft = ['neugierig und ideenoffen','verlässlich und strukturiert','zugewandt und aktiv',
+  'kooperativ und mitfühlend','ruhig und belastungsfest'];
+C.de.risiko = {
+  staerken:'dich unter Wert zu verkaufen, weil du dein Können nicht siehst',
+  gestaltung:'in die Zuschauerrolle zu rutschen und dein Leben geschehen zu lassen',
+  autonomie:'dich selbst aus dem Blick zu verlieren, weil andere die Richtung vorgeben',
+  kompetenz:'an dir zu zweifeln, obwohl du objektiv lieferst',
+  verbundenheit:'zu vereinsamen, während du nach außen funktionierst',
+  belastbarkeit:'über die eigene Grenze hinaus weiterzumachen, bis der Körper bremst',
+  zufriedenheit:'dich mit einem Zustand zu arrangieren, der dir eigentlich nicht entspricht'
+};
+C.de.bfmap = {
+  'Offenheit':'Du bist neugierig und ideenoffen – du brauchst geistige Anregung, um nicht zu veröden.',
+  'Gewissenhaftigkeit':'Du bist verlässlich und strukturiert – Stärke in Verantwortung, Risiko in Überverantwortung.',
+  'Extraversion':'Du gewinnst Energie im Kontakt mit anderen und zeigst dich aktiv.',
+  'Verträglichkeit':'Du bist kooperativ und mitfühlend – Stärke in Beziehungen, Risiko bei der Abgrenzung.',
+  'Emot. Stabilität':'Du bleibst in Belastung vergleichsweise ruhig und erholst dich gut.'
+};
+
+/* ---------------------------------------------------------------- DE: Satzvorlagen Skizze */
+C.de.s = {
+  compl:'Beantwortet: <b>{done} von {tot}</b> Fragen in den vier Lebensbereichen, {sw} von 10 Selbstwert-Items, {bf} von 10 Persönlichkeits-Items. Je mehr beantwortet ist, desto belastbarer die Skizze.',
+  tooFew:'Noch zu wenige Antworten für eine sinnvolle Auswertung. Beantworte bitte zuerst einige Fragen in den Lebensbereichs-Tabs.',
+
+  h1:'Gesamtbild',
+  overall:'Über die ausgewerteten Lebensbereiche liegt dein Durchschnitt bei <b>{avg} von 5</b> ({band}). ',
+  spreadHigh:'Auffällig ist vor allem das <b>Ungleichgewicht</b>: Zwischen deinem stärksten und deinem schwächsten Bereich liegen {spread} Punkte. Deine Landkarte ist kein gleichmäßiger Kreis, sondern deutlich in eine Richtung verschoben.',
+  spreadMid:'Die Bereiche sind unterschiedlich stark, aber ohne dramatisches Ungleichgewicht ({spread} Punkte Unterschied).',
+  spreadLow:'Die Bereiche liegen erstaunlich <b>gleichmäßig</b> beieinander ({spread} Punkte Unterschied) – ein Hinweis auf ein ausbalanciertes Leben oder auf eine gleichmäßig verteilte Grundstimmung.',
+
+  h2:'Was dich trägt – und was Kraft kostet',
+  roleTop:'dein stärkster Bereich', roleBottom:'dein schwächster Bereich', roleMid:'mittleres Feld',
+  domLine:'<b>{dom}</b> — {v} ({band}, {role}). ',
+  domHiLo:'Am stärksten: <b>{hi}</b> ({hiv} – {hitext}). Am schwächsten: <b>{lo}</b> ({lov} – {lotext}).',
+
+  h3:'Dein roter Faden – das Muster hinter den Zahlen',
+  rfIntro:'Unabhängig vom Lebensbereich zeigt sich ein Muster. Durchgehend stark ist bei dir <b>{d1}</b> ({v1}) und <b>{d2}</b> ({v2}) – das ist deine Grundausstattung, auf die du überall zurückgreifen kannst. Durchgehend am dünnsten ist <b>{dl}</b> ({vl}); dieses Thema begleitet dich bereichsübergreifend und ist deshalb der wirksamste Ansatzpunkt: Verbesserungen hier wirken in mehrere Bereiche gleichzeitig.',
+  h4a:'Tragende Säulen, Mittelfeld und Baustellen',
+  pillars:'<b>Tragende Säulen (3,7 und höher).</b> Diese Qualitäten tragen dich bereichsübergreifend:',
+  pillarsNone:'<b>Tragende Säulen.</b> Keine Dimension erreicht über alle Bereiche hinweg den Wert 3,7. Deine relativ stärkste Qualität ist <b>{d}</b> ({v}) – auch wenn sie nicht hoch ausgeprägt ist, ist sie derzeit dein verlässlichster Anker. Dass keine Säule heraussticht, spricht entweder für eine Phase allgemeiner Erschöpfung oder für eine grundsätzlich selbstkritische Beurteilung.',
+  middle:'<b>Mittelfeld (3,0 bis 3,6).</b> {list} – vorhanden, aber nicht stabil. Erfahrungsgemäß kippen genau diese Dimensionen zuerst, wenn die Gesamtbelastung steigt.',
+  sites:'<b>Baustellen (unter 3,0).</b> Hier liegt bereichsübergreifend zu wenig vor:',
+  sitesNone:'<b>Baustellen.</b> Keine Dimension liegt im Mittel unter 3,0 – es gibt bei dir kein durchgängiges Defizit, sondern allenfalls bereichsbezogene Schwachstellen.',
+  h4b:'Eigenschaft oder Umstand?',
+  ctxHigh:'Am stärksten schwankt <b>{d}</b> zwischen den Lebensbereichen: in <b>{hi}</b> liegt der Wert bei {hiv}, in <b>{lo}</b> nur bei {lov} – {spread} Punkte Unterschied. Das ist einer der wichtigsten Befunde dieser Auswertung: Wenn dieselbe Qualität bei dir je nach Kontext so unterschiedlich ausfällt, liegt es nicht an dir als Person, sondern an den Bedingungen in {lo}. Du kannst das offensichtlich – nur dort nicht. Damit wird der Punkt veränderbar: Nicht du musst anders werden, sondern die Rahmenbedingungen oder dein Platz darin.',
+  ctxLow:'Keine Dimension schwankt stark zwischen den Lebensbereichen (größte Spanne: {d} mit {spread} Punkten). Dein Erleben ist über alle Bereiche hinweg gleichförmig. Das spricht dafür, dass deine Werte eher dein grundsätzliches Selbst- und Welterleben abbilden als die Umstände einzelner Bereiche. Veränderung setzt dann sinnvoller bei deinen Bewertungsmustern und Gewohnheiten an als beim Wechsel der Umgebung.',
+  ctxStable:'Besonders konstant ist <b>{d}</b> – nur {spread} Punkte Unterschied zwischen allen Bereichen. Das ist bei dir offenbar eine stabile Eigenschaft und kein Kontextphänomen: Du nimmst sie überall mit, im Guten wie im Schwierigen.',
+  ctxMore:'Ebenfalls deutlich kontextabhängig: {list}.',
+  ctxMoreItem:'<b>{d}</b> (hoch in {hi}, niedrig in {lo})',
+  h4c:'Querverbindungen zwischen deinen Werten',
+  h4d:'Wenn du nur an einer Stelle ansetzt',
+  lever:'Dann bei <b>{d}</b> ({v}). {hebel} Der Grund für diese Priorität ist nicht der niedrigste Zahlenwert allein, sondern dass diese Dimension in allen vier Lebensbereichen gleichzeitig wirkt: Was du hier gewinnst, wirkt an vier Stellen zugleich – während eine Verbesserung in einem einzelnen Bereich eben nur dort ankommt.',
+
+  qKomSw:'Du erlebst dich als <b>wirksamer, als du dich wertschätzt</b> (Kompetenz {a} gegenüber Selbstwert {b}). Leistung füllt bei dir das Selbstwertkonto offenbar nicht auf – ein Muster, bei dem Anerkennung von außen schnell verpufft und immer neue Bestätigung nötig wird.',
+  qSwKom:'Dein <b>Selbstwert ist stabiler als dein Wirksamkeitserleben</b> (Selbstwert {a} gegenüber Kompetenz {b}). Das ist eine günstige Ausgangslage: Du stehst zu dir, auch wenn gerade wenig gelingt – damit sind Veränderungen leichter zu wagen.',
+  qStaGes:'Du <b>kannst mehr, als du einsetzt</b> (Stärken {a} gegenüber Gestaltung {b}). Dein Potenzial liegt teilweise brach: Nicht fehlendes Können bremst dich, sondern fehlende Gelegenheit oder fehlende Initiative.',
+  qGesSta:'Du <b>gestaltest mehr, als du dir zutraust</b> (Gestaltung {a} gegenüber Stärken {b}). Du bist aktiver, als dein Selbstbild es zulässt – hier lohnt es, eigene Erfolge bewusster zu verbuchen statt sie als Zufall abzutun.',
+  qZufBel:'Du bist <b>zufrieden trotz hoher Last</b> (Zufriedenheit {a} bei Belastbarkeit {b}). Das spricht für Sinnerleben und Genügsamkeit, birgt aber das Risiko, Überlastung zu lange zu übersehen, weil es sich im Grunde gut anfühlt.',
+  qKomZuf:'Du bist <b>kompetent, aber nicht zufrieden</b> (Kompetenz {a} gegenüber Zufriedenheit {b}) – ein klassisches Zeichen dafür, dass du Dinge gut machst, die dir inhaltlich wenig bedeuten.',
+  qGewBel:'Hohe Gewissenhaftigkeit ({a}) trifft auf niedrige Belastbarkeitswerte ({b}) – das klassische Muster der <b>Überverantwortung</b>: Du erledigst zuverlässig, was ansteht, auch über die eigene Grenze hinaus.',
+  qVerAut:'Hohe Verträglichkeit ({a}) bei eher geringer Autonomie ({b}) deutet darauf hin, dass du <b>Harmonie häufig mit eigenen Bedürfnissen bezahlst</b>.',
+  qStaBel:'Niedrige emotionale Stabilität ({a}) und niedrige Belastbarkeit ({b}) passen zusammen: Belastung wirkt bei dir länger nach. <b>Erholung ist für dich kein Luxus, sondern Grundbedarf.</b>',
+  qExtVerb:'Du bist eher zurückhaltend (Extraversion {a}) und fühlst dich trotzdem gut verbunden ({b}) – bei dir funktioniert <b>Qualität statt Quantität</b>. Mehr Kontakte wären hier der falsche Hebel.',
+  qOffGes:'Hohe Offenheit ({a}) bei niedriger Gestaltung ({b}): Du hast Ideen und Interessen, setzt sie aber selten in Handlung um – ein Umsetzungs-, kein Ideenproblem.',
+  qVerbAut:'Du bist stark <b>beziehungsorientiert</b>: Verbundenheit ({a}) erlebst du deutlich leichter als Selbstbestimmung ({b}). Typisch dafür ist, dass eigene Bedürfnisse hinter denen anderer zurückstehen.',
+  qAutVerb:'Du bist stark <b>autonomieorientiert</b>: Du gestaltest selbstbestimmt ({a}), Nähe und Zugehörigkeit kommen aber kürzer ({b}). Das kann Freiheit bedeuten – und Einsamkeitsrisiko.',
+  qBelLow:'Deine <b>Belastbarkeitswerte sind über mehrere Bereiche niedrig</b> ({a}). Das deutet weniger auf einzelne Probleme als auf eine insgesamt zu hohe Dauerlast hin – hier lohnt Entlastung vor Optimierung.',
+
+  hSw:'Selbstwert',
+  swIntro:'Dein Selbstwert-Durchschnitt liegt bei <b>{v} von 5</b> ({band}). ',
+  swHigh:'Du gehst im Grundsatz wohlwollend mit dir um und kannst eigene Fähigkeiten anerkennen – das ist eine stabile Basis, besonders in Belastungsphasen.',
+  swMid:'Dein Selbstbild ist ambivalent: Du kennst eigene Stärken, der Wert scheint aber an Leistung oder Zustimmung gebunden. Ein konkreter Hebel ist, Erfolge aktiv zu benennen statt sie als selbstverständlich abzutun.',
+  swLow:'Dein Selbstbild ist aktuell deutlich kritisch. Niedriger Selbstwert ist veränderbar, lässt sich aber selten durch Nachdenken allein heben – wirksam sind Erfahrungen von Wirksamkeit (kleine, erreichbare Ziele) und das Durchbrechen innerer Abwertung, bei anhaltender Belastung mit psychotherapeutischer Unterstützung.',
+  swHardest:' Am schwersten fällt dir dabei die Aussage: „{t}“',
+
+  hBf:'Persönlichkeitskern (Big Five)',
+  bfIntro:'Am deutlichsten ausgeprägt sind <b>{d1}</b> ({v1}) und <b>{d2}</b> ({v2}), am schwächsten <b>{dl}</b> ({vl}). ',
+  bfStabLow:'Deine emotionale Belastbarkeit ist der schwächste Punkt – Stress wirkt bei dir schneller und länger nach, weshalb Erholung für dich kein Luxus, sondern Grundbedarf ist.',
+
+  hSk:'Kenntnisse & Fähigkeiten',
+  skIntro:'Deine stärksten Selbsteinschätzungen: <b>{top}</b>. Die schwächsten: {low}. Für die Weiterentwicklung gilt erfahrungsgemäß: Stärken ausbauen bringt mehr Wirkung als Schwächen ausgleichen – es sei denn, eine Schwäche blockiert konkret ein Ziel.',
+  skTxt:'Eigene Angaben zu Qualifikationen: {t}',
+
+  hW:'Werte',
+  wIntro:'Du leitest dich an: <b>{list}</b>. ',
+  wConflict:'Dabei stehen <b>{list}</b> klassisch in Spannung zueinander – solche Wertekonflikte erklären oft, warum Entscheidungen sich zäh anfühlen, obwohl beide Optionen „richtig“ sind.',
+  wHarmony:'Diese Werte sind gut miteinander vereinbar – deine Entscheidungen dürften sich dadurch relativ widerspruchsfrei anfühlen.',
+  wLowDom:'Prüfe, ob deine Werte in <b>{dom}</b> überhaupt vorkommen. Niedrige Zufriedenheit in einem Bereich hat häufig damit zu tun, dass dort gerade das fehlt, was dir im Kern wichtig ist.',
+
+  hOwn:'Deine eigenen Worte',
+  bStr:'Stärken', bSch:'schwierig', bRes:'Ressourcen',
+
+  hRec:'Wo Veränderung am meisten bringt',
+  recBuild:'<b>Darauf kannst du bauen:</b> {list}. Nutze diese Bereiche bewusst als Kraftquelle, wenn es anderswo anstrengend wird – genau das ist der Kern der Ressourcenorientierung.',
+
+  hShort:'Deine Persönlichkeit in Kurzform',
+  shortPic:'<b>Kurzbild:</b> Du bist {arch}{bf}.',
+  shortP1:'Über alle vier Lebensbereiche hinweg wirkst du vor allem über <b>{d1}</b> ({v1})',
+  shortP1b:' und <b>{d2}</b> ({v2})',
+  shortP2:'. Am meisten zu Hause bist du in <b>{top}</b> ({topv}) – dort greifen deine Qualitäten am besten ineinander. ',
+  shortP3:'Die größte Aufmerksamkeit braucht derzeit <b>{bot}</b> ({botv}), und zwar vor allem wegen <b>{dim}</b> ({dimv}). ',
+  shortP4:'Als Person bist du vor allem {bft} ({dim} {v})',
+  shortP4b:', am wenigsten ausgeprägt ist {dim} ({v})',
+  shortP5:'Dein Selbstwert liegt bei {v} ({band}) – {txt}. ',
+  swBase5:'ein tragfähiges Fundament, auf dem Veränderungen gut aufsetzen können',
+  swBase3:'eine ausreichende, aber nicht robuste Basis, die unter Druck wackelt',
+  swBase1:'eine Basis, die derzeit selbst Unterstützung braucht, bevor große Veränderungen anstehen',
+  shortP6:'Geführt wirst du dabei von {list}. ',
+  shortRes:'<b>Deine größte Ressource:</b> {d} in {dom} ({v}). Genau dorthin lohnt es sich zu gehen, wenn es anderswo schwer wird – das ist der Kern der Ressourcenorientierung: nicht Löcher stopfen, sondern aus dem Vollen schöpfen.',
+  shortRisk:'<b>Dein größtes Risiko:</b> {t}.',
+  shortStep:'<b>Dein nächster Schritt</b> (von dir selbst formuliert, für {dom}): {t}',
+  shortNoStep:'<b>Dein nächster Schritt:</b> Noch nicht formuliert. Trage in den Lebensbereichs-Tabs mindestens ein konkretes Ziel ein – eine Landkarte ohne Ziel zeigt, wo du stehst, aber nicht, wohin du willst.',
+  oneLine:'<i>In einem Satz: Du bist jemand, der vor allem über <b>{d}</b> wirkt, sich am stärksten in <b>{top}</b> zu Hause fühlt{bot} – mit einem {band} Selbstwert als Fundament.</i>',
+  oneLineBot:', während <b>{bot}</b> derzeit am meisten Aufmerksamkeit braucht'
+};
+
+C.de.conflicts = [['Sicherheit','Abwechslung'],['Sicherheit','Freiheit'],['Leistung','Genuss'],
+  ['Einfluss','Fürsorge'],['Tradition','Freiheit'],['Leistung','Gesundheit']];
+
+/* ================================================================ EN */
+C.en.ui = {
+  title:'🧭 Personality Map by Life Areas',
+  langLabel:'Sprache / Language:',
+  intro:'Four life areas are assessed with their own tailored questions, plus a cross-cutting section on self-image, values and skills. Click an answer for each statement (1 = does not apply at all … 5 = fully applies); unanswered questions are excluded from the analysis. The <b>Results</b> tab turns your answers into a map plus an automatically generated personality sketch. Everything runs inside this single file – no internet, no installation. Answers are stored locally in this browser only.',
+  legend:'1 = does not apply at all · 2 = barely applies · 3 = partly · 4 = mostly applies · 5 = fully applies · (click again to clear an answer)',
+  glossarySummary:'What the seven dimensions in this questionnaire mean',
+  progress:'{done} of {tot} questions answered',
+  tabSum:'📊 Results & personality sketch',
+  tabGen:'General: self-image, values & skills',
+  txtStr:'My three greatest strengths in this area',
+  txtStrP:'e.g. patience, humour, a talent for organising...',
+  txtSch:'What I find difficult in this area',
+  txtSchP:'e.g. setting boundaries, taking criticism, lack of time...',
+  txtRes:'My resources in this area (who or what carries me here?)',
+  txtResP:'e.g. my partner, my sister, a club, experience, routines...',
+  txtZielP:'Specific goal + next step + by when...',
+  smart:'(SMART: specific, measurable, attractive, realistic, time-bound)',
+  genIntro:'These questions are not tied to a single life area but describe you as a person across all of them. They appear as separate blocks in the results.',
+  hSelbstwert:'Self-esteem (10 items, based on the Rosenberg scale)',
+  hBigfive:'Personality core (Big Five)',
+  hSkills:'Knowledge & skills (self-assessment)',
+  hSkillsTxt:'Specific qualifications, certificates, experience',
+  hSkillsTxtP:'Training, further education, special experience, languages (level)...',
+  hWerte:'My values — what guides me? (ideally pick five)',
+  werteCount:'{n} selected',
+  werteHint:' — for clarity, better limit this to five',
+  btnExp:'Save answers to a file',
+  btnImp:'Load answers',
+  btnPrint:'Print / save as PDF',
+  btnReset:'Reset everything',
+  saved:'Last saved: {t}',
+  loaded:'Saved answers loaded.',
+  nosave:'No answers saved yet.',
+  importErr:'The file could not be read.',
+  resetAsk:'Really delete all answers?',
+  dlRadar:'Save map as image',
+  chartBalance:'Balance across life areas',
+  chartDims:'Dimensions across all areas',
+  chartPers:'Self-esteem & personality core',
+  chartSkills:'Knowledge & skills',
+  labelSelbstwert:'Self-esteem',
+  noData:'no answer',
+  radarHint:'Seven dimensions, assessed separately in each life area. A solid shape means the area is fully answered, dashed means partly.',
+  hRadar:'The map: four life areas compared',
+  hGloss:'Definitions: what the seven dimensions mean',
+  glossIntro:'These seven dimensions form the axes of the map. Each was assessed with its own tailored questions in every life area.',
+  hTable:'All values at a glance',
+  tabDim:'Dimension', tabAvg:'avg', tabTotal:'Total',
+  hZiele:'Your goals',
+  hSketch:'📝 Your personality sketch',
+  hEval:'Results & personality sketch',
+  pendingPers:'<b>Still open:</b> Self-esteem and personality core are not (fully) answered yet. You will find these questions in the tab <b>“General: self-image, values &amp; skills”</b>. Without them the sketch is missing the sections on self-esteem, personality and the cross-links between the two.',
+  pendingSkills:'<b>Still open:</b> The skills self-assessment in the <b>“General”</b> tab is still empty.',
+  pendingWerte:'<b>Still open:</b> No values have been selected yet in the <b>“General”</b> tab.',
+  disclaimer:'<b>How to read this:</b> This is a self-reflection instrument, not a validated diagnostic test. The questions draw on established models (Big Five, the VIA strengths framework, self-determination theory by Deci &amp; Ryan, the Rosenberg self-esteem scale, resource orientation following Antonovsky and Grawe), but the analysis is a structured playback of your own ratings. If you experience persistently low mood, severe exhaustion, lasting loneliness or very low self-esteem, talk to your GP or a psychotherapist. In Germany, out-of-hours medical advice is available on <b>116 117</b>; in acute danger or with suicidal thoughts call <b>112</b> immediately, or the crisis line <b>0800 111 0 111</b>. Elsewhere, use your local emergency number and crisis services.'
+};
+
+C.en.axis = {staerken:'Skills', gestaltung:'Shaping', autonomie:'Autonomy', kompetenz:'Competence',
+  verbundenheit:'Connectedness', belastbarkeit:'Sustainable load', zufriedenheit:'Satisfaction'};
+
+C.en.dimdef = {
+  staerken: {
+    kurz:'What you can actually do in this area.',
+    lang:'Learned abilities and skills that you genuinely use in this life area: listening, resolving conflict, organising, working competently, mastering a hobby. This is about the toolkit itself, not how it feels to use it.',
+    hoch:'you have a solid repertoire there and know what you are capable of',
+    niedrig:'you lack practice, opportunity or confidence in your own ability there',
+    wirkung:'Such abilities transfer: what you can do in one area can usually be applied elsewhere too.',
+    mangel:'Missing skills are the most easily changed element of the whole map, simply because they can be learned.',
+    hebel:'Skills can be built deliberately: pick one concrete ability, choose a source to learn from, practise.',
+    quelle:'Strengths and resource frameworks, including the VIA classification (Peterson &amp; Seligman) and the distinction between talents, skills and resources in Niemiec'
+  },
+  gestaltung: {
+    kurz:'How actively you shape the area instead of merely experiencing it.',
+    lang:'Initiative and deliberate care: creating rituals, keeping in touch, contributing ideas, planning free time, raising issues. The underlying question is: do you shape this area, or does it just happen to you?',
+    hoch:'you actively take charge of this area instead of leaving it to chance',
+    niedrig:'the area runs alongside you, driven from outside or by habit',
+    wirkung:'Active shaping raises satisfaction and the sense of control even when the circumstances themselves do not change.',
+    mangel:'Where you do not shape, others or circumstances decide for you. Over time this creates the feeling of only ever reacting.',
+    hebel:'Defining one single recurring action and scheduling it works better here than grand resolutions.',
+    quelle:'Concepts of proactive life design and job crafting (Wrzesniewski &amp; Dutton)'
+  },
+  autonomie: {
+    kurz:'The experience of acting from your own will.',
+    lang:'Being able to decide for yourself, standing by your own values, being allowed to say no, being able to be yourself. Important: autonomy is not the same as independence or being alone – you can be highly autonomous inside a very close bond, as long as your actions feel self-chosen.',
+    hoch:'your actions there feel like yours, not imposed on you',
+    niedrig:'you experience yourself as controlled from outside, over-adapted or under pressure to conform',
+    wirkung:'Autonomy is one of the strongest protective factors against feeling at the mercy of others and against exhaustion.',
+    mangel:'Persistently low autonomy leads to inner withdrawal: you still function, but you are no longer really involved.',
+    hebel:'Reclaiming and naming one small, concrete area of decision works better than a sweeping argument of principle.',
+    quelle:'Basic need in self-determination theory (Deci &amp; Ryan)'
+  },
+  kompetenz: {
+    kurz:'The experience of being effective: I can do this, I see results.',
+    lang:'This is not about objective ability (that is the “Skills” dimension) but about the feeling of having an effect: seeing results, receiving feedback, feeling equal to your tasks, being neither under- nor overchallenged.',
+    hoch:'you experience yourself as effective there and get confirmation of it',
+    niedrig:'you doubt your impact there, get little feedback, or are chronically over- or underchallenged',
+    wirkung:'The sense of effectiveness is the main source of self-confidence and feeds primarily on your own experiences of success.',
+    mangel:'Without feedback you lose the measure of your own impact – regardless of how good you actually are.',
+    hebel:'Actively ask for specific feedback and make small, completable tasks visible.',
+    quelle:'Basic need in self-determination theory (Deci &amp; Ryan) and self-efficacy (Bandura)'
+  },
+  verbundenheit: {
+    kurz:'Belonging and closeness: feeling seen, accepted and supported.',
+    lang:'Reliable relationships, solidarity in difficult times, having someone you can confide difficult things to. What is measured is experienced quality, not the number of contacts: a few close relationships can produce high scores, a large circle of acquaintances low ones.',
+    hoch:'you feel you belong there and are supported',
+    niedrig:'you experience distance, loneliness or the feeling of being on the outside',
+    wirkung:'Social connectedness is among the best-documented protective factors for physical and mental health.',
+    mangel:'Lasting loneliness is an independent health risk factor, not a personal failure.',
+    hebel:'Regularity beats intensity: one recurring appointment with the same people works better than many one-off contacts.',
+    quelle:'Basic need in self-determination theory (Deci &amp; Ryan), attachment and loneliness research'
+  },
+  belastbarkeit: {
+    kurz:'How bearable the load of this area currently is for you.',
+    lang:'Beware of one misreading: high scores do not mean that you can endure a lot, but that the ratio of demands to recovery is currently right. This covers workload, the ability to switch off, recovery, and whether the load rests on several shoulders.',
+    hoch:'the demands of this area are currently bearable for you',
+    niedrig:'this area is draining you, recovery falls short',
+    wirkung:'A bearable load is the precondition for the other six dimensions to work at all.',
+    mangel:'Low scores here drag all other dimensions down over time – exhaustion eats shaping and satisfaction first.',
+    hebel:'Relieve first, optimise later: hand over, drop or renegotiate one task – and treat recovery like an appointment.',
+    quelle:'Job demands and strain models in work psychology, conservation of resources theory (Hobfoll), recovery research'
+  },
+  zufriedenheit: {
+    kurz:'The overall verdict on this area: satisfaction, meaning and confidence.',
+    lang:'How satisfied you are with this life area overall, whether it feels meaningful to you, and whether you look ahead with confidence. This is the outcome variable of the map: it usually follows from the other six dimensions rather than standing apart from them.',
+    hoch:'this area works for you and gives you meaning',
+    niedrig:'this area is currently not working for you',
+    wirkung:'High satisfaction despite low individual scores suggests meaning or contentment – but it can also mask overload.',
+    mangel:'Low satisfaction is rarely vague: it can usually be traced to one of the other six dimensions – and that one is far more concretely changeable than the feeling itself.',
+    hebel:'Check which of the other six dimensions scores lowest in this area, and start there.',
+    quelle:'Life satisfaction and wellbeing research (e.g. Diener, Ryff)'
+  }
+};
+
+C.en.dom = {
+  fam: {
+    label:'Family & Partnership',
+    intro:'Questions about your closest circle: partner, children, parents, siblings, chosen family. If you are not currently in a relationship, apply the questions to your family or closest people.',
+    goal:'Your goal for family & partnership',
+    groups: {
+      staerken: {title:'Strengths & abilities in family/partnership', items:[
+        'I listen well and respond to the needs of the people close to me.',
+        'I can raise conflicts without becoming hurtful.',
+        'I am reliable for my family and take responsibility.',
+        'I can actively show affection and appreciation.']},
+      gestaltung: {title:'Closeness, communication & shaping', items:[
+        'I speak openly about my feelings and needs.',
+        'We talk to each other honestly and respectfully.',
+        'I experience emotional (and where relevant physical) closeness as fulfilling.',
+        'We deliberately create shared time and rituals.']},
+      autonomie: {title:'Autonomy & space of my own', items:[
+        'In my family/relationship I can really be myself.',
+        'I can make my own decisions without feeling guilty.',
+        'I have enough space and time for myself.',
+        'I can say no when something becomes too much.']},
+      kompetenz: {title:'Sense of competence & recognition', items:[
+        'I feel equal to my role in the family/relationship.',
+        'What I do for my family is seen and appreciated.',
+        'I trust myself to handle difficult family situations.']},
+      verbundenheit: {title:'Connectedness & solidarity', items:[
+        'I feel loved and accepted just as I am.',
+        'There is at least one person I can share anything with.',
+        'When things get difficult, we stick together.',
+        'I do not feel lonely in this area.']},
+      belastbarkeit: {title:'Load & recovery', items:[
+        'I rarely feel overwhelmed by family obligations.',
+        'Unresolved conflicts hardly preoccupy me over longer periods.',
+        'I can recover well after family strain.',
+        'I do not carry the responsibility in the family mostly alone.']},
+      zufriedenheit: {title:'Satisfaction & meaning', items:[
+        'Overall I am satisfied with my family and relationship life.',
+        'This life area gives my life meaning.',
+        'I look ahead to the coming years in this area with confidence.']}
+    }
+  },
+  job: {
+    label:'Work & Career',
+    intro:'Questions about paid work, training, studies or your main occupation (including care work if that is your main activity).',
+    goal:'Your goal for work & career',
+    groups: {
+      staerken: {title:'Professional & transferable strengths', items:[
+        'I have a confident command of the technical demands of my work.',
+        'I work in a structured way and reliably finish tasks.',
+        'I collaborate and communicate well in a team.',
+        'I can analyse problems and find workable solutions.']},
+      gestaltung: {title:'Shaping & development', items:[
+        'I regularly get to use my strengths in my work.',
+        'I can help shape the content and processes of my work.',
+        'I am developing professionally (learning, qualifications).',
+        'I contribute my own ideas and am heard.']},
+      autonomie: {title:'Autonomy & fit with my values', items:[
+        'I can largely decide for myself how I do my work.',
+        'I have influence over my working hours, pace or breaks.',
+        'My work fits my own values.',
+        'I can decline or hand over tasks when it gets too much.']},
+      kompetenz: {title:'Effectiveness & feedback', items:[
+        'I experience myself as effective and successful at work.',
+        'I receive enough feedback on my performance.',
+        'I trust myself to take on new professional challenges.',
+        'My qualifications fit my tasks (neither under- nor overchallenged).']},
+      verbundenheit: {title:'Collegiality & belonging', items:[
+        'I feel valued and supported by my colleagues.',
+        'I have a good relationship with my manager or working environment.',
+        'I feel I belong in my workplace.',
+        'Conflicts at work are resolved fairly.']},
+      belastbarkeit: {title:'Load, switching off & balance', items:[
+        'My workload is manageable for me.',
+        'I can mentally switch off after work.',
+        'At the end of a working day I am usually not completely drained.',
+        'Work and private life are well balanced for me.']},
+      zufriedenheit: {title:'Satisfaction & meaning', items:[
+        'Overall I am satisfied with my professional situation.',
+        'I experience my work as meaningful.',
+        'My work is adequately rewarded (pay, recognition, security).',
+        'I look to my professional future with confidence.']}
+    }
+  },
+  fri: {
+    label:'Friends',
+    intro:'Questions about friendships, acquaintances and your social network outside family and work.',
+    goal:'Your goal for friendships',
+    groups: {
+      staerken: {title:'Social abilities', items:[
+        'I find it fairly easy to make contact with new people.',
+        'I am a reliable friend.',
+        'I listen well and am there for others.',
+        'I can raise and resolve conflicts in friendships.']},
+      gestaltung: {title:'Keeping in touch & boundaries', items:[
+        'I actively get in touch with friends and keep contact alive.',
+        'I see my friends as often as I would like.',
+        'I can also set boundaries and say no in friendships.',
+        'I deliberately invest time in the friendships that matter to me.']},
+      autonomie: {title:'Authenticity & self-determination', items:[
+        'In friendships I can show myself as I really am.',
+        'I do not over-adapt in order to be liked.',
+        'I decide for myself who I spend my time with.',
+        'I can hold a different opinion without fearing rejection.']},
+      kompetenz: {title:'Social confidence', items:[
+        'I feel secure in social situations and groups.',
+        'I feel I am an asset to my friends.',
+        'I handle small talk and new groups well.']},
+      verbundenheit: {title:'Closeness & reliability', items:[
+        'I have friends who really know and understand me.',
+        'In an emergency I can rely on my friends.',
+        'I feel I belong in my circle of friends, not on the outside.',
+        'There are people I can talk to about difficult things.']},
+      belastbarkeit: {title:'Load & loneliness', items:[
+        'I rarely feel taken advantage of in friendships.',
+        'I do not suffer from loneliness.',
+        'I can process disappointments in friendships well.',
+        'Social contact does not cost me more energy than it gives me.']},
+      zufriedenheit: {title:'Satisfaction & meaning', items:[
+        'Overall I am satisfied with my circle of friends.',
+        'The quality of my friendships is good (not just the number).',
+        'My friendships give me strength and joy.']}
+    }
+  },
+  fre: {
+    label:'Leisure & Health',
+    intro:'Questions about free time, interests, recovery and health – the part of your life that is neither family nor work nor friendships.',
+    goal:'Your goal for leisure, health & recovery',
+    groups: {
+      staerken: {title:'Interests & abilities in free time', items:[
+        'I have hobbies or interests I am genuinely good at.',
+        'I make, build, write, play music or am creative in some other way.',
+        'I move regularly or do sport.',
+        'In my free time I learn things that interest me.']},
+      gestaltung: {title:'Shaping & self-care', items:[
+        'I shape my free time deliberately rather than from whatever time is left over.',
+        'I regularly take time for recovery.',
+        'I look after my health (sleep, nutrition, exercise).',
+        'I enjoy trying new things.']},
+      autonomie: {title:'Autonomy in free time', items:[
+        'I decide for myself how I use my free time.',
+        'In my free time I am not governed by other people expectations.',
+        'I can cancel appointments and obligations when I need to.']},
+      kompetenz: {title:'Flow & progress', items:[
+        'In my hobbies I experience moments of complete absorption (flow).',
+        'I make noticeable progress in my interests.',
+        'I trust myself to learn new activities.']},
+      verbundenheit: {title:'Community & connectedness', items:[
+        'I share my interests with others (club, group, community).',
+        'I experience a sense of community in my free time.',
+        'I feel connected to nature, culture or something larger than myself.']},
+      belastbarkeit: {title:'Recovery & energy', items:[
+        'I have enough free time for myself.',
+        'I manage to genuinely switch off in my free time.',
+        'In everyday life I usually feel rested and recovered.',
+        'My media and phone use does not rob me of recovery.']},
+      zufriedenheit: {title:'Satisfaction & meaning', items:[
+        'Overall I am satisfied with how I spend my free time.',
+        'My free time gives me energy for the other life areas.',
+        'I experience my free time as meaningful, not just as a pastime.']}
+    }
+  }
+};
+
+C.en.selbstwert = [
+  'On the whole I am satisfied with myself.',
+  'I am convinced that I have a number of good qualities.',
+  'I am able to do things as well as most other people.',
+  'I have plenty I can be proud of.',
+  'I rarely feel useless.',
+  'I feel that I am a person of worth — on an equal footing with others.',
+  'I have respect for myself.',
+  'Even when something fails, I do not see myself as a failure.',
+  'I take a positive attitude towards myself.',
+  'My self-esteem stays stable even when others criticise me.'
+];
+
+C.en.bigfive = [
+  {dim:'Openness', items:[
+    'I am curious and open to new experiences and ideas.',
+    'I am receptive to art, music, nature or unusual thoughts.']},
+  {dim:'Conscientiousness', items:[
+    'I am thorough, reliable and keep my commitments.',
+    'I plan ahead and finish tasks even when I do not feel like it.']},
+  {dim:'Extraversion', items:[
+    'I am sociable, approach others and like taking an active role.',
+    'I am energetic and usually in good spirits.']},
+  {dim:'Agreeableness', items:[
+    'I am considerate, helpful and compassionate.',
+    'I approach conflict cooperatively and trust other people.']},
+  {dim:'Emot. stability', items:[
+    'Under pressure I usually stay calm and do not get irritable easily.',
+    'Setbacks and stress do not knock me off course for long.']}
+];
+
+C.en.skills = ['Professional / job knowledge','Practical / technical skills','Social / communication skills',
+  'Creative skills','Languages','Digital / IT skills','Organisational skills','Physical / sporting ability',
+  'Leadership & responsibility','Problem solving & analysis','Financial & household competence',
+  'Health literacy & self-care','Handling conflict','Time & self-management'];
+
+C.en.werte = ['Self-direction','Security','Achievement','Pleasure','Variety','Tradition','Belonging',
+  'Caring','Fairness','Influence','Spirituality','Family','Health','Freedom','Creativity',
+  'Sustainability','Honesty','Knowledge'];
+
+C.en.tipps = {
+  fam: {
+    staerken:'Name one situation from the past week where you did something well in your family – and deliberately repeat it.',
+    gestaltung:'Agree on one small fixed ritual (e.g. 20 minutes of undisturbed conversation per week) instead of grand intentions.',
+    autonomie:'Make one concrete request for space of your own ("I need two hours to myself on Sunday morning") instead of hinting.',
+    kompetenz:'Say openly that you need feedback – and state out loud what you contribute.',
+    verbundenheit:'Deliberately seek out the person with whom closeness comes most easily, and invest there first.',
+    belastbarkeit:'Write down for one week which tasks land on you – and renegotiate two of them.',
+    zufriedenheit:'Check whether the dissatisfaction hangs on something concrete (time, conflict, division of roles) – that is far more negotiable than "everything".'
+  },
+  job: {
+    staerken:'Write down three tasks that come easily to you, and look for a role where they occur more often.',
+    gestaltung:'Bring one concrete improvement proposal to your next team meeting – room to shape things often only appears once you ask.',
+    autonomie:'Clarify with your manager which decisions you are allowed to make without checking back.',
+    kompetenz:'Actively ask for a feedback conversation with two questions: What is going well? What should I change?',
+    verbundenheit:'Invest in one collegial connection (a shared break, lunch) – belonging measurably reduces the experience of strain.',
+    belastbarkeit:'Review your recorded hours, breaks and availability after hours; persistent exhaustion should be assessed medically.',
+    zufriedenheit:'Distinguish: content, conditions or people? Usually only one of the three needs to change, not the whole job.'
+  },
+  fri: {
+    staerken:'You do not need to be extroverted: one reliable one-to-one meeting beats ten superficial contacts.',
+    gestaltung:'Pick two names and propose a specific date this month – friendship lives on initiative.',
+    autonomie:'Deliberately test a small boundary ("today does not work for me") and notice that the relationship holds.',
+    kompetenz:'Join a group with a clear task (sport, volunteering, a course) – structure takes the pressure out of socialising.',
+    verbundenheit:'Share something personal first; closeness usually grows out of that first step.',
+    belastbarkeit:'Judge friendships by whether you have more or less energy afterwards, and weight them accordingly.',
+    zufriedenheit:'If you feel lonely: one new regular weekly appointment changes more than many separate contacts.'
+  },
+  fre: {
+    staerken:'Pick up an old interest again rather than looking for a new one – the barrier to entry is lower.',
+    gestaltung:'Put recovery in your calendar like an appointment, otherwise it only fills the leftover time.',
+    autonomie:'Drop one obligation that you only fulfil out of habit.',
+    kompetenz:'Look for an activity with visible progress (an instrument, sport, a craft) – flow needs the right level of difficulty.',
+    verbundenheit:'Combine interest and contact: a group, club or course instead of a hobby on your own.',
+    belastbarkeit:'Check sleep duration, evening screen time and exercise – those three act fastest on recovery.',
+    zufriedenheit:'Plan one activity per week that serves nobody but you and needs no purpose.'
+  }
+};
+
+C.en.bands = {5:'very high', 4:'high', 3:'moderate', 2:'low', 1:'very low', 0:'no answer'};
+C.en.bandAdj = {5:'very high', 4:'high', 3:'moderate', 2:'low', 1:'very low', 0:'unassessed'};
+C.en.arch = {
+  staerken:'someone who can rely on their own ability',
+  gestaltung:'someone who actively takes things in hand',
+  autonomie:'someone who acts from their own motivation and stays true to themselves',
+  kompetenz:'someone who seeks impact and wants to see results',
+  verbundenheit:'someone who finds and gives support through relationships',
+  belastbarkeit:'someone whose life is currently in a bearable balance',
+  zufriedenheit:'someone who can find meaning in their life areas'
+};
+C.en.bft = ['curious and open to ideas','reliable and structured','outgoing and active',
+  'cooperative and compassionate','calm and resilient under pressure'];
+C.en.risiko = {
+  staerken:'selling yourself short because you do not see your own ability',
+  gestaltung:'slipping into the spectator role and letting your life happen to you',
+  autonomie:'losing sight of yourself because others set the direction',
+  kompetenz:'doubting yourself even though you objectively deliver',
+  verbundenheit:'becoming isolated while still functioning on the outside',
+  belastbarkeit:'carrying on past your own limit until your body puts the brakes on',
+  zufriedenheit:'settling for a situation that does not actually suit you'
+};
+C.en.bfmap = {
+  'Openness':'You are curious and open to ideas – you need mental stimulation to avoid going stale.',
+  'Conscientiousness':'You are reliable and structured – a strength in responsibility, a risk in over-responsibility.',
+  'Extraversion':'You gain energy from contact with others and show up actively.',
+  'Agreeableness':'You are cooperative and compassionate – a strength in relationships, a risk when it comes to boundaries.',
+  'Emot. stability':'You stay comparatively calm under strain and recover well.'
+};
+
+C.en.s = {
+  compl:'Answered: <b>{done} of {tot}</b> questions across the four life areas, {sw} of 10 self-esteem items, {bf} of 10 personality items. The more you answer, the more robust the sketch.',
+  tooFew:'Too few answers so far for a meaningful analysis. Please answer some questions in the life area tabs first.',
+
+  h1:'Overall picture',
+  overall:'Across the assessed life areas your average is <b>{avg} out of 5</b> ({band}). ',
+  spreadHigh:'The striking feature is the <b>imbalance</b>: there are {spread} points between your strongest and your weakest area. Your map is not an even circle but clearly tilted in one direction.',
+  spreadMid:'The areas differ in strength, but without a dramatic imbalance ({spread} points difference).',
+  spreadLow:'The areas sit remarkably <b>evenly</b> together ({spread} points difference) – a sign of a balanced life, or of an evenly distributed underlying mood.',
+
+  h2:'What carries you – and what costs you energy',
+  roleTop:'your strongest area', roleBottom:'your weakest area', roleMid:'middle ground',
+  domLine:'<b>{dom}</b> — {v} ({band}, {role}). ',
+  domHiLo:'Strongest: <b>{hi}</b> ({hiv} – {hitext}). Weakest: <b>{lo}</b> ({lov} – {lotext}).',
+
+  h3:'Your common thread – the pattern behind the numbers',
+  rfIntro:'Regardless of life area, a pattern emerges. Consistently strong for you are <b>{d1}</b> ({v1}) and <b>{d2}</b> ({v2}) – this is your basic equipment, available to you everywhere. Consistently thinnest is <b>{dl}</b> ({vl}); this theme follows you across all areas and is therefore the most effective place to start: improvements here work in several areas at once.',
+  h4a:'Load-bearing pillars, middle ground and building sites',
+  pillars:'<b>Load-bearing pillars (3.7 and above).</b> These qualities carry you across all areas:',
+  pillarsNone:'<b>Load-bearing pillars.</b> No dimension reaches 3.7 across all areas. Your relatively strongest quality is <b>{d}</b> ({v}) – even though it is not highly developed, it is currently your most reliable anchor. The absence of a standout pillar suggests either a phase of general exhaustion or a fundamentally self-critical way of rating yourself.',
+  middle:'<b>Middle ground (3.0 to 3.6).</b> {list} – present, but not stable. In practice these are exactly the dimensions that tip first when overall load rises.',
+  sites:'<b>Building sites (below 3.0).</b> Here there is too little across all areas:',
+  sitesNone:'<b>Building sites.</b> No dimension averages below 3.0 – you have no pervasive deficit, at most area-specific weak spots.',
+  h4b:'Trait or circumstance?',
+  ctxHigh:'The dimension that varies most between life areas is <b>{d}</b>: in <b>{hi}</b> it stands at {hiv}, in <b>{lo}</b> at only {lov} – {spread} points apart. This is one of the most important findings in this analysis: if the same quality varies that much by context, the cause is not you as a person but the conditions in {lo}. You clearly can do this – just not there. That makes the point changeable: it is not you who has to become different, but the circumstances or your place within them.',
+  ctxLow:'No dimension varies strongly between life areas (largest spread: {d} with {spread} points). Your experience is remarkably uniform across all areas. That suggests your scores reflect your general sense of self and world rather than the specific circumstances of individual areas. Change then starts more sensibly with your appraisal patterns and habits than with changing your surroundings.',
+  ctxStable:'Particularly constant is <b>{d}</b> – only {spread} points difference across all areas. For you this is evidently a stable trait rather than a context effect: you take it everywhere, for better and for worse.',
+  ctxMore:'Also clearly context-dependent: {list}.',
+  ctxMoreItem:'<b>{d}</b> (high in {hi}, low in {lo})',
+  h4c:'Cross-links between your scores',
+  h4d:'If you change only one thing',
+  lever:'Then start with <b>{d}</b> ({v}). {hebel} The reason for this priority is not the lowest number alone, but that this dimension operates in all four life areas simultaneously: what you gain here pays off in four places at once – whereas an improvement in a single area arrives only there.',
+
+  qKomSw:'You experience yourself as <b>more effective than you value yourself</b> (competence {a} versus self-esteem {b}). Achievement evidently does not top up your self-worth account – a pattern in which outside recognition evaporates quickly and ever more confirmation is needed.',
+  qSwKom:'Your <b>self-esteem is more stable than your sense of effectiveness</b> (self-esteem {a} versus competence {b}). That is a favourable starting point: you stand by yourself even when little is succeeding – which makes change easier to risk.',
+  qStaGes:'You <b>can do more than you use</b> (skills {a} versus shaping {b}). Part of your potential lies idle: it is not a lack of ability that holds you back, but a lack of opportunity or initiative.',
+  qGesSta:'You <b>shape more than you give yourself credit for</b> (shaping {a} versus skills {b}). You are more active than your self-image allows – it is worth recording your own successes more consciously instead of writing them off as luck.',
+  qZufBel:'You are <b>satisfied despite a high load</b> (satisfaction {a} with sustainable load {b}). That speaks for meaning and contentment, but carries the risk of overlooking overload for too long because it basically feels fine.',
+  qKomZuf:'You are <b>competent but not satisfied</b> (competence {a} versus satisfaction {b}) – a classic sign that you do things well that mean little to you in substance.',
+  qGewBel:'High conscientiousness ({a}) meets low scores on sustainable load ({b}) – the classic pattern of <b>over-responsibility</b>: you reliably handle whatever comes up, even beyond your own limit.',
+  qVerAut:'High agreeableness ({a}) with rather low autonomy ({b}) suggests that you <b>often pay for harmony with your own needs</b>.',
+  qStaBel:'Low emotional stability ({a}) and a low sustainable load ({b}) fit together: strain lingers longer for you. <b>Recovery is not a luxury for you but a basic requirement.</b>',
+  qExtVerb:'You are rather reserved (extraversion {a}) and still feel well connected ({b}) – <b>quality over quantity</b> works for you. More contacts would be the wrong lever here.',
+  qOffGes:'High openness ({a}) with low shaping ({b}): you have ideas and interests but rarely translate them into action – an implementation problem, not an idea problem.',
+  qVerbAut:'You are strongly <b>relationship-oriented</b>: connectedness ({a}) comes considerably more easily to you than self-determination ({b}). Typically this means your own needs take second place to those of others.',
+  qAutVerb:'You are strongly <b>autonomy-oriented</b>: you act in a self-determined way ({a}), but closeness and belonging come up short ({b}). That can mean freedom – and a risk of isolation.',
+  qBelLow:'Your <b>sustainable-load scores are low across several areas</b> ({a}). That points less to individual problems than to an overall load that is simply too high for too long – relief comes before optimisation here.',
+
+  hSw:'Self-esteem',
+  swIntro:'Your self-esteem average is <b>{v} out of 5</b> ({band}). ',
+  swHigh:'In principle you treat yourself kindly and can acknowledge your own abilities – a stable base, especially during periods of strain.',
+  swMid:'Your self-image is ambivalent: you know your strengths, but your worth appears tied to achievement or approval. One concrete lever is to name successes actively instead of dismissing them as self-evident.',
+  swLow:'Your self-image is currently markedly critical. Low self-esteem can change, but it rarely lifts through reflection alone – what works are experiences of effectiveness (small, achievable goals) and interrupting inner self-devaluation, with psychotherapeutic support if the strain persists.',
+  swHardest:' The statement you find hardest is: "{t}"',
+
+  hBf:'Personality core (Big Five)',
+  bfIntro:'Most pronounced are <b>{d1}</b> ({v1}) and <b>{d2}</b> ({v2}), weakest is <b>{dl}</b> ({vl}). ',
+  bfStabLow:'Your emotional resilience is the weakest point – stress hits you faster and lingers longer, which is why recovery is a basic requirement for you rather than a luxury.',
+
+  hSk:'Knowledge & skills',
+  skIntro:'Your strongest self-ratings: <b>{top}</b>. The weakest: {low}. For development the rule of thumb is: building strengths pays off more than compensating weaknesses – unless a weakness specifically blocks a goal.',
+  skTxt:'Your own notes on qualifications: {t}',
+
+  hW:'Values',
+  wIntro:'You are guided by: <b>{list}</b>. ',
+  wConflict:'Among these, <b>{list}</b> classically stand in tension with each other – such value conflicts often explain why decisions feel sticky even though both options are "right".',
+  wHarmony:'These values are readily compatible with each other – your decisions should therefore feel relatively free of contradiction.',
+  wLowDom:'Check whether your values appear in <b>{dom}</b> at all. Low satisfaction in an area often has to do with the absence there of precisely what matters most to you.',
+
+  hOwn:'Your own words',
+  bStr:'strengths', bSch:'difficult', bRes:'resources',
+
+  hRec:'Where change pays off most',
+  recBuild:'<b>What you can build on:</b> {list}. Use these areas deliberately as a source of strength when things get hard elsewhere – that is exactly what resource orientation means.',
+
+  hShort:'Your personality in brief',
+  shortPic:'<b>In brief:</b> You are {arch}{bf}.',
+  shortP1:'Across all four life areas you act above all through <b>{d1}</b> ({v1})',
+  shortP1b:' and <b>{d2}</b> ({v2})',
+  shortP2:'. You are most at home in <b>{top}</b> ({topv}) – that is where your qualities mesh best. ',
+  shortP3:'The area needing most attention right now is <b>{bot}</b> ({botv}), mainly because of <b>{dim}</b> ({dimv}). ',
+  shortP4:'As a person you are above all {bft} ({dim} {v})',
+  shortP4b:', while {dim} is least pronounced ({v})',
+  shortP5:'Your self-esteem stands at {v} ({band}) – {txt}. ',
+  swBase5:'a solid foundation that change can build on',
+  swBase3:'an adequate but not robust base that wobbles under pressure',
+  swBase1:'a base that currently needs support itself before major changes are tackled',
+  shortP6:'You are guided in all this by {list}. ',
+  shortRes:'<b>Your greatest resource:</b> {d} in {dom} ({v}). That is exactly where to go when things get hard elsewhere – the core of resource orientation: not plugging holes, but drawing on what is abundant.',
+  shortRisk:'<b>Your greatest risk:</b> {t}.',
+  shortStep:'<b>Your next step</b> (in your own words, for {dom}): {t}',
+  shortNoStep:'<b>Your next step:</b> Not formulated yet. Enter at least one concrete goal in the life area tabs – a map without a destination shows where you stand, but not where you want to go.',
+  oneLine:'<i>In one sentence: you are someone who acts above all through <b>{d}</b>, feels most at home in <b>{top}</b>{bot} – with {band} self-esteem as the foundation.</i>',
+  oneLineBot:', while <b>{bot}</b> currently needs the most attention'
+};
+
+C.en.conflicts = [['Security','Variety'],['Security','Freedom'],['Achievement','Pleasure'],
+  ['Influence','Caring'],['Tradition','Freedom'],['Achievement','Health']];
+
+/* =====================================================================
+   ENGINE
+   ===================================================================== */
+const KEY = 'pl_landkarte_v4';
+let S = {};
+try { S = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e) { S = {}; }
+let lang = (S.__lang === 'en') ? 'en' : 'de';
+let T = C[lang];
+
+function get(id, def) { return S[id] !== undefined ? S[id] : def; }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {} }
+function set(id, v) {
+  if (v === undefined) delete S[id]; else S[id] = v;
+  save();
+  const st = document.getElementById('saveStatus');
+  if (st) st.textContent = fmt(T.ui.saved, {t:new Date().toLocaleTimeString()});
+  refreshProgress();
+  const sp = document.getElementById('panel-sum');
+  if (sp && sp.classList.contains('active')) renderSummary();
+}
+function fmt(s, o) { return String(s).replace(/\{(\w+)\}/g, (m,k) => (o && o[k] !== undefined) ? o[k] : m); }
+function escapeHTML(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; }
+
+/* ---------------- Sprachumschaltung ---------------- */
+function toggleLang() { setLang(lang === 'de' ? 'en' : 'de'); }
+function setLang(l) {
+  lang = l; T = C[l]; S.__lang = l; save();
+  document.documentElement.lang = l;
+  document.getElementById('langSwitch').className = 'switch ' + l;
+  buildUI();
+}
+
+/* ---------------- Scoring (sprachunabhängige IDs) ---------------- */
+function qid(dom, dim, i) { return dom + '_' + dim + '_' + i; }
+function itemsOf(dom, dim) { const g = T.dom[dom].groups[dim]; return g ? g.items : []; }
+function answered(ids) { return ids.map(i => get(i)).filter(v => typeof v === 'number'); }
+function mean(a) { return a.length ? a.reduce((x,y)=>x+y,0)/a.length : null; }
+function domItemIds(dom) {
+  const ids = [];
+  DIMKEYS.forEach(dim => itemsOf(dom, dim).forEach((_,i) => ids.push(qid(dom,dim,i))));
+  return ids;
+}
+function dimScore(dom, dim) { return mean(answered(itemsOf(dom,dim).map((_,i)=>qid(dom,dim,i)))); }
+function domainScore(dom) { return mean(answered(domItemIds(dom))); }
+function domainProgress(dom) { const ids = domItemIds(dom); return {done:answered(ids).length, total:ids.length}; }
+function dimAcross(dim) { return mean(DOMKEYS.map(d => dimScore(d,dim)).filter(v => v !== null)); }
+function selbstwertScore() { return mean(answered(T.selbstwert.map((_,i)=>'sw_'+i))); }
+function bigfiveScores() { return T.bigfive.map((g,gi)=>({dim:g.dim, idx:gi, val:mean(answered(g.items.map((_,i)=>'bf_'+gi+'_'+i)))})); }
+function skillScores() { return T.skills.map((c,i)=>({label:c, val:get('sk_'+i,null)})).filter(x=>typeof x.val==='number'); }
+function werteSel() { return (get('werte',[]) || []).map(i => T.werte[i]).filter(Boolean); }
+function genProgress() {
+  const sw = answered(T.selbstwert.map((_,i)=>'sw_'+i)).length;
+  let bf = 0; T.bigfive.forEach((g,gi)=>{ bf += answered(g.items.map((_,i)=>'bf_'+gi+'_'+i)).length; });
+  return {sw:sw, bf:bf, sk:skillScores().length, werte:(get('werte',[])||[]).length,
+          done: sw+bf+skillScores().length, total: T.selbstwert.length + 10 + T.skills.length};
+}
+function band(v) {
+  if (v === null || v === undefined) return 0;
+  if (v >= 4.3) return 5; if (v >= 3.7) return 4; if (v >= 3.0) return 3; if (v >= 2.3) return 2; return 1;
+}
+const bw = v => T.bands[band(v)];
+const ba = v => T.bandAdj[band(v)];
+const f1 = v => (v === null || v === undefined) ? '–' : v.toFixed(1);
+
+/* ---------------- UI-Aufbau ---------------- */
+function scaleRow(container, id, text) {
+  const row = el('div','q');
+  row.appendChild(el('div','qtext', text));
+  const sc = el('div','scale');
+  for (let i=1;i<=5;i++) {
+    const b = document.createElement('button');
+    b.textContent = i; b.dataset.v = i;
+    if (get(id) === i) b.className = 'on';
+    b.onclick = () => {
+      set(id, get(id) === i ? undefined : i);
+      Array.from(sc.children).forEach(c => c.className = (get(id) === parseInt(c.dataset.v)) ? 'on' : '');
+    };
+    sc.appendChild(b);
+  }
+  row.appendChild(sc);
+  container.appendChild(row);
+}
+function addText(parent, id, placeholder) {
+  const t = document.createElement('textarea');
+  t.placeholder = placeholder; t.value = get(id,'');
+  t.oninput = e => set(id, e.target.value);
+  parent.appendChild(t);
+}
+function glossaryHTML(compact) {
+  let h = '<div class="block">';
+  DIMKEYS.forEach(k => {
+    const x = T.dimdef[k];
+    h += '<p style="margin:0 0 10px 0"><b>'+T.axis[k]+'</b> &mdash; '+x.kurz+'<br><span class="muted">'+x.lang
+       + ' <b>'+(lang==='de'?'Hohe Werte:':'High scores:')+'</b> '+x.hoch+'. <b>'+(lang==='de'?'Niedrige Werte:':'Low scores:')+'</b> '+x.niedrig+'.'
+       + (compact ? '' : '<br><i>'+(lang==='de'?'Hintergrund: ':'Background: ')+x.quelle+'</i>') + '</span></p>';
+  });
+  return h + '</div>';
+}
+
+let TABS = [];
+function buildUI() {
+  document.getElementById('plTitle').textContent = T.ui.title;
+  document.getElementById('langLabel').textContent = T.ui.langLabel;
+  document.getElementById('plIntro').innerHTML = T.ui.intro;
+  document.getElementById('btnExp').textContent = T.ui.btnExp;
+  document.getElementById('btnImp').textContent = T.ui.btnImp;
+  document.getElementById('btnPrint').textContent = T.ui.btnPrint;
+  document.getElementById('btnReset').textContent = T.ui.btnReset;
+  document.getElementById('langSwitch').className = 'switch ' + lang;
+
+  const tabsEl = document.getElementById('tabs'), panelsEl = document.getElementById('panels');
+  tabsEl.innerHTML = ''; panelsEl.innerHTML = '';
+  TABS = DOMKEYS.map(k => ({id:k, label:T.dom[k].label})).concat([{id:'gen', label:T.ui.tabGen},{id:'sum', label:T.ui.tabSum}]);
+  TABS.forEach(t => {
+    const b = document.createElement('button');
+    b.textContent = t.label; b.id = 'tabbtn-'+t.id; b.onclick = () => showTab(t.id);
+    tabsEl.appendChild(b);
+    const p = el('div','panel'); p.id = 'panel-'+t.id; panelsEl.appendChild(p);
+  });
+
+  DOMKEYS.forEach(domk => {
+    const dom = T.dom[domk], p = document.getElementById('panel-'+domk);
+    p.appendChild(el('h2', null, dom.label));
+    p.appendChild(el('p','hint', dom.intro));
+    p.appendChild(el('div','scalelegend', T.ui.legend));
+    const det = document.createElement('details'); det.style.marginBottom = '8px';
+    det.innerHTML = '<summary style="cursor:pointer;font-size:0.85em;color:var(--muted-foreground,#6b6b76)">'+T.ui.glossarySummary+'</summary>'+glossaryHTML(true);
+    p.appendChild(det);
+    const prog = el('div','block');
+    prog.innerHTML = '<div class="progress" id="prog-'+domk+'"></div><div class="bar"><div id="progbar-'+domk+'"></div></div>';
+    p.appendChild(prog);
+    DIMKEYS.forEach(dim => {
+      const g = dom.groups[dim]; if (!g) return;
+      p.appendChild(el('h3', null, g.title));
+      const box = el('div', null);
+      g.items.forEach((text,i) => scaleRow(box, qid(domk,dim,i), text));
+      p.appendChild(box);
+    });
+    const ft = el('div','block');
+    ft.appendChild(el('h4', null, T.ui.txtStr)); addText(ft, domk+'_txt_str', T.ui.txtStrP);
+    ft.appendChild(el('h4', null, T.ui.txtSch)); addText(ft, domk+'_txt_sch', T.ui.txtSchP);
+    ft.appendChild(el('h4', null, T.ui.txtRes)); addText(ft, domk+'_txt_res', T.ui.txtResP);
+    ft.appendChild(el('h4', null, dom.goal + ' ' + T.ui.smart)); addText(ft, domk+'_txt_ziel', T.ui.txtZielP);
+    p.appendChild(ft);
+  });
+
+  // Allgemein-Tab
+  const g = document.getElementById('panel-gen');
+  g.appendChild(el('h2', null, T.ui.tabGen));
+  g.appendChild(el('p','hint', T.ui.genIntro));
+  g.appendChild(el('div','scalelegend', T.ui.legend));
+  const gp = el('div','block');
+  gp.innerHTML = '<div class="progress" id="prog-gen"></div><div class="bar"><div id="progbar-gen"></div></div>';
+  g.appendChild(gp);
+  g.appendChild(el('h3', null, T.ui.hSelbstwert));
+  const sw = el('div', null); T.selbstwert.forEach((t,i)=>scaleRow(sw,'sw_'+i,t)); g.appendChild(sw);
+  g.appendChild(el('h3', null, T.ui.hBigfive));
+  const bf = el('div', null);
+  T.bigfive.forEach((grp,gi) => { bf.appendChild(el('h4','muted', grp.dim)); grp.items.forEach((t,i)=>scaleRow(bf,'bf_'+gi+'_'+i,t)); });
+  g.appendChild(bf);
+  g.appendChild(el('h3', null, T.ui.hSkills));
+  const sk = el('div', null); T.skills.forEach((c,i)=>scaleRow(sk,'sk_'+i,c)); g.appendChild(sk);
+  const skt = el('div','block'); skt.appendChild(el('h4', null, T.ui.hSkillsTxt)); addText(skt,'sk_txt',T.ui.hSkillsTxtP); g.appendChild(skt);
+  g.appendChild(el('h3', null, T.ui.hWerte));
+  const tg = el('div','tags'); tg.id = 'wertetags'; g.appendChild(tg);
+  g.appendChild(el('div','progress','<span id="wertecount"></span>'));
+  renderWerte();
+
+  showTab(window.__curTab && document.getElementById('panel-'+window.__curTab) ? window.__curTab : DOMKEYS[0]);
+  refreshProgress();
+  document.getElementById('saveStatus').textContent = Object.keys(S).filter(k=>k!=='__lang').length ? T.ui.loaded : T.ui.nosave;
+}
+
+function showTab(id) {
+  window.__curTab = id;
+  TABS.forEach(t => {
+    const b = document.getElementById('tabbtn-'+t.id), p = document.getElementById('panel-'+t.id);
+    if (b) b.className = (t.id===id) ? 'active' : '';
+    if (p) p.className = (t.id===id) ? 'panel active' : 'panel';
+  });
+  if (id === 'sum') renderSummary();
+}
+
+function renderWerte() {
+  const tg = document.getElementById('wertetags'); if (!tg) return;
+  tg.innerHTML = '';
+  const sel = get('werte', []) || [];
+  T.werte.forEach((w,i) => {
+    const t = el('div','tag' + (sel.includes(i)?' on':''), w);
+    t.onclick = () => {
+      let s = (get('werte',[])||[]).slice();
+      s = s.includes(i) ? s.filter(x=>x!==i) : s.concat([i]);
+      set('werte', s); renderWerte();
+    };
+    tg.appendChild(t);
+  });
+  const c = document.getElementById('wertecount');
+  if (c) c.textContent = fmt(T.ui.werteCount,{n:sel.length}) + (sel.length>5 ? T.ui.werteHint : '');
+}
+
+function refreshProgress() {
+  DOMKEYS.forEach(k => {
+    const pr = domainProgress(k);
+    const t = document.getElementById('prog-'+k), b = document.getElementById('progbar-'+k);
+    if (t) t.textContent = fmt(T.ui.progress,{done:pr.done, tot:pr.total});
+    if (b) b.style.width = (pr.total ? Math.round(100*pr.done/pr.total) : 0) + '%';
+  });
+  const gp = genProgress();
+  const t = document.getElementById('prog-gen'), b = document.getElementById('progbar-gen');
+  if (t) t.textContent = fmt(T.ui.progress,{done:gp.done, tot:gp.total});
+  if (b) b.style.width = (gp.total ? Math.round(100*gp.done/gp.total) : 0) + '%';
+  renderWerte();
+}
+
+/* ---------------- SVG-Diagramme ---------------- */
+function cssv(n, fb) { const v = getComputedStyle(document.body).getPropertyValue(n).trim(); return v || fb; }
+function sv(name, a) { const e = document.createElementNS('http://www.w3.org/2000/svg', name); for (const k in a) e.setAttribute(k, a[k]); return e; }
+
+function radarSVG(axes, datasets, size) {
+  size = size || 500;
+  const cx = size/2, cy = size/2 + 6, R = size*0.33;
+  const fg = cssv('--foreground','#1b1b1f'), bd = cssv('--border','#d2d2da');
+  const svg = sv('svg',{width:size, height:size+70, viewBox:'0 0 '+size+' '+(size+70), id:'radarSvg'});
+  const n = axes.length;
+  const pt = (i,r) => { const a = -Math.PI/2 + i*2*Math.PI/n; return [cx+r*Math.cos(a), cy+r*Math.sin(a)]; };
+  for (let ring=1; ring<=5; ring++) {
+    let d = ''; const r = R*ring/5;
+    for (let i=0;i<n;i++) { const p = pt(i,r); d += (i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1); }
+    svg.appendChild(sv('path',{d:d+'Z', fill:'none', stroke:bd, 'stroke-width': ring===5?1.4:0.7}));
+  }
+  for (let i=0;i<n;i++) {
+    const p = pt(i,R);
+    svg.appendChild(sv('line',{x1:cx,y1:cy,x2:p[0],y2:p[1],stroke:bd,'stroke-width':0.7}));
+    const lp = pt(i,R+24);
+    const t = sv('text',{x:lp[0], y:lp[1], fill:fg, 'font-size':12, 'font-family':'system-ui, sans-serif',
+      'text-anchor': Math.abs(lp[0]-cx)<6 ? 'middle' : (lp[0]>cx ? 'start':'end'), 'dominant-baseline':'middle'});
+    t.textContent = axes[i]; svg.appendChild(t);
+  }
+  datasets.forEach(ds => {
+    const complete = ds.values.every(v => typeof v === 'number');
+    if (complete && n > 2) {
+      let d = '';
+      ds.values.forEach((v,i) => { const p = pt(i, R*v/5); d += (i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1); });
+      svg.appendChild(sv('path',{d:d+'Z', fill:ds.color, 'fill-opacity':0.13, stroke:ds.color, 'stroke-width':2}));
+    } else {
+      const pts = [];
+      ds.values.forEach((v,i) => { if (typeof v === 'number') pts.push(pt(i, R*v/5)); });
+      pts.forEach((p,k) => { if (k) svg.appendChild(sv('line',{x1:pts[k-1][0],y1:pts[k-1][1],x2:p[0],y2:p[1],
+        stroke:ds.color,'stroke-width':1.5,'stroke-dasharray':'4 3'})); });
+    }
+    ds.values.forEach((v,i) => { if (typeof v === 'number') { const p = pt(i,R*v/5);
+      svg.appendChild(sv('circle',{cx:p[0],cy:p[1],r:3.2,fill:ds.color})); } });
+  });
+  datasets.forEach((ds,i) => {
+    const y = size + 14 + i*16;
+    svg.appendChild(sv('rect',{x:14,y:y-8,width:11,height:11,rx:2,fill:ds.color}));
+    const t = sv('text',{x:31,y:y,fill:fg,'font-size':12,'font-family':'system-ui, sans-serif','dominant-baseline':'middle'});
+    t.textContent = ds.label + (ds.note ? ' ' + ds.note : ''); svg.appendChild(t);
+  });
+  return svg;
+}
+
+function barSVG(rows, opts) {
+  opts = opts || {};
+  const w = opts.width || 460, lw = opts.labelWidth || 215, rowH = 22, pad = 10;
+  const h = rows.length*rowH + pad*2 + 18;
+  const fg = cssv('--foreground','#1b1b1f'), bd = cssv('--border','#d2d2da'), acc = cssv('--accent','#4f7cff');
+  const svg = sv('svg',{width:w, height:h, viewBox:'0 0 '+w+' '+h, id: opts.id || 'barSvg'});
+  const barW = w - lw - 46;
+  for (let i=1;i<=5;i++) {
+    const x = lw + barW*i/5;
+    svg.appendChild(sv('line',{x1:x,y1:pad-4,x2:x,y2:h-20,stroke:bd,'stroke-width':0.6}));
+    const t = sv('text',{x:x,y:h-7,fill:fg,'font-size':10,'font-family':'system-ui, sans-serif','text-anchor':'middle',opacity:0.6});
+    t.textContent = i; svg.appendChild(t);
+  }
+  rows.forEach((r,i) => {
+    const y = pad + i*rowH;
+    const lt = sv('text',{x:0,y:y+rowH/2,fill:fg,'font-size':11.5,'font-family':'system-ui, sans-serif','dominant-baseline':'middle'});
+    lt.textContent = r.label; svg.appendChild(lt);
+    if (typeof r.val === 'number') {
+      svg.appendChild(sv('rect',{x:lw,y:y+4,width:Math.max(2,barW*r.val/5),height:rowH-9,rx:3,fill:r.color||acc}));
+      const vt = sv('text',{x:lw+barW+6,y:y+rowH/2,fill:fg,'font-size':11,'font-family':'system-ui, sans-serif','dominant-baseline':'middle'});
+      vt.textContent = r.val.toFixed(1); svg.appendChild(vt);
+    } else {
+      const vt = sv('text',{x:lw+4,y:y+rowH/2,fill:fg,'font-size':11,'font-family':'system-ui, sans-serif','dominant-baseline':'middle',opacity:0.5});
+      vt.textContent = T.ui.noData; svg.appendChild(vt);
+    }
+  });
+  return svg;
+}
+
+function downloadSVG(id, filename) {
+  const svg = document.getElementById(id); if (!svg) return;
+  const clone = svg.cloneNode(true);
+  clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+  clone.insertBefore(sv('rect',{x:0,y:0,width:clone.getAttribute('width'),height:clone.getAttribute('height'),fill:'#ffffff'}), clone.firstChild);
+  clone.querySelectorAll('text').forEach(t => t.setAttribute('fill','#1b1b1f'));
+  const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(clone));
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = img.width*2; c.height = img.height*2;
+    const ctx = c.getContext('2d'); ctx.scale(2,2); ctx.drawImage(img,0,0);
+    const a = document.createElement('a'); a.download = filename+'.png'; a.href = c.toDataURL('image/png'); a.click();
+  };
+  img.onerror = () => { const a = document.createElement('a'); a.download = filename+'.svg'; a.href = url; a.click(); };
+  img.src = url;
+}
+
+/* ---------------- Export / Import / Reset ---------------- */
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'personality-map-answers.json'; a.click();
+}
+function importJSON(ev) {
+  const f = ev.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => { try { S = JSON.parse(r.result); save(); location.reload(); } catch(e) { alert(T.ui.importErr); } };
+  r.readAsText(f);
+}
+function resetAll() { if (confirm(T.ui.resetAsk)) { const l = S.__lang; localStorage.removeItem(KEY); S = {__lang:l}; save(); location.reload(); } }
+
+/* =====================================================================
+   AUSWERTUNG
+   ===================================================================== */
+function renderSummary() {
+  const p = document.getElementById('panel-sum');
+  p.innerHTML = '';
+  p.appendChild(el('h2', null, T.ui.hEval));
+
+  const totals = DOMKEYS.map(domainProgress);
+  const done = totals.reduce((a,b)=>a+b.done,0), tot = totals.reduce((a,b)=>a+b.total,0);
+  const gp = genProgress();
+  p.appendChild(el('p','hint', fmt(T.s.compl,{done:done, tot:tot, sw:gp.sw, bf:gp.bf})));
+
+  if (done < 8) { p.appendChild(el('div','warn', T.s.tooFew)); return; }
+
+  // offene Blöcke sichtbar machen
+  if (gp.sw < T.selbstwert.length || gp.bf < 10) p.appendChild(el('div','todo', T.ui.pendingPers));
+  if (gp.sk === 0) p.appendChild(el('div','todo', T.ui.pendingSkills));
+  if (gp.werte === 0) p.appendChild(el('div','todo', T.ui.pendingWerte));
+
+  // Radar
+  p.appendChild(el('h3', null, T.ui.hRadar));
+  p.appendChild(el('p','hint', T.ui.radarHint));
+  const charts = el('div','charts');
+  const datasets = DOMKEYS.map(k => {
+    const vals = DIMKEYS.map(dim => dimScore(k,dim));
+    const sc = domainScore(k);
+    return {label:T.dom[k].label, color:DOMCOLOR[k], values:vals,
+            note: sc!==null ? '(\u00d8 '+f1(sc)+')' : '('+T.ui.noData+')'};
+  }).filter(ds => ds.values.some(v => v !== null));
+  const cbox = el('div', null);
+  cbox.appendChild(radarSVG(DIMKEYS.map(k=>T.axis[k]), datasets, 500));
+  const dl = document.createElement('button');
+  dl.className = 'btn sec'; dl.textContent = T.ui.dlRadar;
+  dl.onclick = () => downloadSVG('radarSvg','personality-map');
+  cbox.appendChild(dl);
+  charts.appendChild(cbox);
+
+  const bbox = el('div', null);
+  bbox.appendChild(el('h4', null, T.ui.chartBalance));
+  bbox.appendChild(barSVG(DOMKEYS.map(k=>({label:T.dom[k].label, val:domainScore(k), color:DOMCOLOR[k]})), {id:'barDom', width:440, labelWidth:165}));
+  bbox.appendChild(el('h4', null, T.ui.chartDims));
+  bbox.appendChild(barSVG(DIMKEYS.map(k=>({label:T.axis[k], val:dimAcross(k)})), {id:'barDim', width:440, labelWidth:135}));
+  const sw = selbstwertScore(), bfs = bigfiveScores();
+  bbox.appendChild(el('h4', null, T.ui.chartPers));
+  bbox.appendChild(barSVG([{label:T.ui.labelSelbstwert, val:sw, color:'#d4a017'}].concat(bfs.map(b=>({label:b.dim, val:b.val}))), {id:'barPers', width:440, labelWidth:155}));
+  const sk = skillScores();
+  if (sk.length) {
+    bbox.appendChild(el('h4', null, T.ui.chartSkills));
+    bbox.appendChild(barSVG(sk.map(s=>({label:s.label, val:s.val})), {id:'barSkill', width:460, labelWidth:215}));
+  }
+  charts.appendChild(bbox);
+  p.appendChild(charts);
+
+  // Glossar
+  p.appendChild(el('h3', null, T.ui.hGloss));
+  p.appendChild(el('p','hint', T.ui.glossIntro));
+  p.appendChild(el('div', null, glossaryHTML(false)));
+
+  // Skizze
+  p.appendChild(el('h3', null, T.ui.hSketch));
+  p.appendChild(el('div','summary', buildSketch()));
+
+  // Tabelle
+  p.appendChild(el('h3', null, T.ui.hTable));
+  let tab = '<table class="scoretab"><tr><th>'+T.ui.tabDim+'</th>'
+    + DOMKEYS.map(k=>'<th>'+T.dom[k].label.split(' ')[0]+'</th>').join('') + '<th>'+T.ui.tabAvg+'</th></tr>';
+  DIMKEYS.forEach(dim => {
+    tab += '<tr><td>'+T.axis[dim]+'</td>';
+    DOMKEYS.forEach(k => tab += '<td>'+f1(dimScore(k,dim))+'</td>');
+    tab += '<td><b>'+f1(dimAcross(dim))+'</b></td></tr>';
+  });
+  tab += '<tr><td><b>'+T.ui.tabTotal+'</b></td>'
+    + DOMKEYS.map(k=>'<td><b>'+f1(domainScore(k))+'</b></td>').join('') + '<td></td></tr></table>';
+  p.appendChild(el('div', null, tab));
+
+  // Ziele
+  const ziele = DOMKEYS.map(k=>({label:T.dom[k].label, txt:get(k+'_txt_ziel','').trim()})).filter(z=>z.txt);
+  if (ziele.length) {
+    p.appendChild(el('h3', null, T.ui.hZiele));
+    p.appendChild(el('ul', null, ziele.map(z=>'<li><b>'+z.label+':</b> '+escapeHTML(z.txt)+'</li>').join('')));
+  }
+
+  p.appendChild(el('div','warn', T.ui.disclaimer));
+}
+
+/* ---------------- Skizze ---------------- */
+function buildSketch() {
+  const s = T.s;
+  let out = '', secNo = 0;
+  const H = t => '<h3>' + (++secNo) + '. ' + t + '</h3>';
+
+  const doms = DOMKEYS.map(k=>({k, label:T.dom[k].label, v:domainScore(k)})).filter(x=>x.v!==null).sort((a,b)=>b.v-a.v);
+  const rows = DIMKEYS.map(k=>({k, axis:T.axis[k], v:dimAcross(k)})).filter(x=>x.v!==null).sort((a,b)=>b.v-a.v);
+  const sw = selbstwertScore();
+  const bfs = bigfiveScores().filter(b=>b.val!==null);
+  const sks = skillScores();
+  const werte = werteSel();
+
+  /* 1 Gesamtbild */
+  const overall = mean(doms.map(x=>x.v));
+  if (overall !== null) {
+    out += H(s.h1);
+    const spread = doms.length>1 ? Math.max(...doms.map(x=>x.v))-Math.min(...doms.map(x=>x.v)) : 0;
+    out += '<p>' + fmt(s.overall,{avg:f1(overall), band:bw(overall)});
+    out += fmt(spread>=1.2 ? s.spreadHigh : (spread>=0.6 ? s.spreadMid : s.spreadLow), {spread:f1(spread)}) + '</p>';
+  }
+
+  /* 2 Bereiche */
+  out += H(s.h2) + '<ul>';
+  doms.forEach((x,i) => {
+    const role = i===0 ? s.roleTop : (i===doms.length-1 ? s.roleBottom : s.roleMid);
+    out += '<li>' + fmt(s.domLine,{dom:x.label, v:f1(x.v), band:bw(x.v), role:role});
+    const dd = DIMKEYS.map(k=>({k, axis:T.axis[k], v:dimScore(x.k,k)})).filter(y=>y.v!==null).sort((a,b)=>b.v-a.v);
+    if (dd.length>=2) {
+      const hi = dd[0], lo = dd[dd.length-1];
+      out += fmt(s.domHiLo,{hi:hi.axis, hiv:f1(hi.v), hitext:T.dimdef[hi.k].hoch, lo:lo.axis, lov:f1(lo.v), lotext:T.dimdef[lo.k].niedrig});
+    }
+    out += '</li>';
+  });
+  out += '</ul>';
+
+  /* 3 Roter Faden */
+  if (rows.length>=3) {
+    out += H(s.h3);
+    out += '<p>' + fmt(s.rfIntro,{d1:rows[0].axis, v1:f1(rows[0].v), d2:rows[1].axis, v2:f1(rows[1].v),
+      dl:rows[rows.length-1].axis, vl:f1(rows[rows.length-1].v)}) + '</p>';
+
+    out += '<h4>'+s.h4a+'</h4>';
+    const pil = rows.filter(x=>x.v>=3.7), mid = rows.filter(x=>x.v<3.7&&x.v>=3.0), bau = rows.filter(x=>x.v<3.0);
+    if (pil.length) {
+      out += '<p>'+s.pillars+'</p><ul>';
+      pil.forEach(x => out += '<li><b>'+x.axis+'</b> ('+f1(x.v)+') — '+T.dimdef[x.k].hoch+'. '+T.dimdef[x.k].wirkung+'</li>');
+      out += '</ul>';
+    } else out += '<p>'+fmt(s.pillarsNone,{d:rows[0].axis, v:f1(rows[0].v)})+'</p>';
+    if (mid.length) out += '<p>'+fmt(s.middle,{list:mid.map(x=>x.axis+' ('+f1(x.v)+')').join(', ')})+'</p>';
+    if (bau.length) {
+      out += '<p>'+s.sites+'</p><ul>';
+      bau.forEach(x => out += '<li><b>'+x.axis+'</b> ('+f1(x.v)+') — '+T.dimdef[x.k].niedrig+'. '+T.dimdef[x.k].mangel+'</li>');
+      out += '</ul>';
+    } else out += '<p>'+s.sitesNone+'</p>';
+
+    const spreads = DIMKEYS.map(k => {
+      const vals = DOMKEYS.map(d=>({label:T.dom[d].label, v:dimScore(d,k)})).filter(x=>x.v!==null);
+      if (vals.length<2) return null;
+      const srt = vals.slice().sort((a,b)=>b.v-a.v);
+      return {k, axis:T.axis[k], hi:srt[0], lo:srt[srt.length-1], spread:srt[0].v-srt[srt.length-1].v};
+    }).filter(Boolean).sort((a,b)=>b.spread-a.spread);
+    if (spreads.length) {
+      out += '<h4>'+s.h4b+'</h4>';
+      const w = spreads[0], st = spreads[spreads.length-1];
+      out += '<p>' + (w.spread>=1.2
+        ? fmt(s.ctxHigh,{d:w.axis, hi:w.hi.label, hiv:f1(w.hi.v), lo:w.lo.label, lov:f1(w.lo.v), spread:f1(w.spread)})
+        : fmt(s.ctxLow,{d:w.axis, spread:f1(w.spread)})) + '</p>';
+      if (st.spread<=0.6) out += '<p>'+fmt(s.ctxStable,{d:st.axis, spread:f1(st.spread)})+'</p>';
+      const more = spreads.filter(x=>x!==w&&x!==st&&x.spread>=1.0).slice(0,3);
+      if (more.length) out += '<p>'+fmt(s.ctxMore,{list:more.map(x=>fmt(s.ctxMoreItem,{d:x.axis, hi:x.hi.label, lo:x.lo.label})).join('; ')})+'</p>';
+    }
+
+    const q = [];
+    const kom = dimAcross('kompetenz'), ver = dimAcross('verbundenheit'), aut = dimAcross('autonomie'),
+          bel = dimAcross('belastbarkeit'), sta = dimAcross('staerken'), ges = dimAcross('gestaltung'), zuf = dimAcross('zufriedenheit');
+    const bfv = {}; bfs.forEach(b => bfv[b.idx] = b.val);   // 0=O 1=C 2=E 3=A 4=N
+    const P = (tpl,a,b) => q.push(fmt(tpl,{a:f1(a), b:f1(b)}));
+    if (sw!==null && kom!==null && kom-sw>=0.7) P(s.qKomSw, kom, sw);
+    if (sw!==null && kom!==null && sw-kom>=0.7) P(s.qSwKom, sw, kom);
+    if (sta!==null && ges!==null && sta-ges>=0.7) P(s.qStaGes, sta, ges);
+    if (ges!==null && sta!==null && ges-sta>=0.7) P(s.qGesSta, ges, sta);
+    if (zuf!==null && bel!==null && zuf-bel>=0.8) P(s.qZufBel, zuf, bel);
+    if (kom!==null && zuf!==null && kom-zuf>=0.8) P(s.qKomZuf, kom, zuf);
+    if (ver!==null && aut!==null && ver-aut>=0.8) P(s.qVerbAut, ver, aut);
+    if (aut!==null && ver!==null && aut-ver>=0.8) P(s.qAutVerb, aut, ver);
+    if (bel!==null && bel<=2.6) q.push(fmt(s.qBelLow,{a:f1(bel)}));
+    if (bfv[1]!==undefined && bfv[1]>=4 && bel!==null && bel<=3.0) P(s.qGewBel, bfv[1], bel);
+    if (bfv[3]!==undefined && bfv[3]>=4 && aut!==null && aut<=3.2) P(s.qVerAut, bfv[3], aut);
+    if (bfv[4]!==undefined && bfv[4]<=2.6 && bel!==null && bel<=3.2) P(s.qStaBel, bfv[4], bel);
+    if (bfv[2]!==undefined && bfv[2]<=2.6 && ver!==null && ver>=3.7) P(s.qExtVerb, bfv[2], ver);
+    if (bfv[0]!==undefined && bfv[0]>=4 && ges!==null && ges<=3.0) P(s.qOffGes, bfv[0], ges);
+    if (q.length) { out += '<h4>'+s.h4c+'</h4><ul>'; q.forEach(x=>out+='<li>'+x+'</li>'); out += '</ul>'; }
+
+    const low = rows[rows.length-1];
+    out += '<h4>'+s.h4d+'</h4><p>'+fmt(s.lever,{d:low.axis, v:f1(low.v), hebel:T.dimdef[low.k].hebel})+'</p>';
+  }
+
+  /* 4 Selbstwert */
+  if (sw !== null) {
+    out += H(s.hSw) + '<p>' + fmt(s.swIntro,{v:f1(sw), band:bw(sw)});
+    const b = band(sw);
+    out += (b>=4 ? s.swHigh : (b===3 ? s.swMid : s.swLow));
+    const lowest = T.selbstwert.map((t,i)=>({t, v:get('sw_'+i)})).filter(x=>typeof x.v==='number').sort((a,b)=>a.v-b.v);
+    if (lowest.length && lowest[0].v<=2) out += fmt(s.swHardest,{t:lowest[0].t});
+    out += '</p>';
+  }
+
+  /* 5 Big Five */
+  if (bfs.length>=3) {
+    const srt = bfs.slice().sort((a,b)=>b.val-a.val);
+    out += H(s.hBf) + '<p>' + fmt(s.bfIntro,{d1:srt[0].dim, v1:f1(srt[0].val), d2:srt[1].dim, v2:f1(srt[1].val),
+      dl:srt[srt.length-1].dim, vl:f1(srt[srt.length-1].val)});
+    out += (T.bfmap[srt[0].dim] || '') + ' ';
+    const last = srt[srt.length-1];
+    if (last.idx === 4 && last.val <= 2.6) out += s.bfStabLow;
+    out += '</p>';
+  }
+
+  /* 6 Fähigkeiten */
+  if (sks.length>=3) {
+    const srt = sks.slice().sort((a,b)=>b.val-a.val);
+    out += H(s.hSk) + '<p>' + fmt(s.skIntro,{
+      top: srt.slice(0,3).map(x=>x.label+' ('+x.val+')').join(', '),
+      low: srt.slice(-3).map(x=>x.label+' ('+x.val+')').join(', ')}) + '</p>';
+  }
+  const sktxt = get('sk_txt','').trim();
+  if (sktxt) out += '<p class="muted">'+fmt(s.skTxt,{t:escapeHTML(sktxt)})+'</p>';
+
+  /* 7 Werte */
+  if (werte.length) {
+    out += H(s.hW) + '<p>' + fmt(s.wIntro,{list:werte.join(', ')});
+    const found = T.conflicts.filter(pr => werte.includes(pr[0]) && werte.includes(pr[1]));
+    out += found.length ? fmt(s.wConflict,{list:found.map(pr=>pr[0]+' \u2194 '+pr[1]).join(lang==='de'?' und ':' and ')}) : s.wHarmony;
+    out += '</p>';
+    const lowDom = doms.length ? doms[doms.length-1] : null;
+    if (lowDom && lowDom.v < 3) out += '<p>'+fmt(s.wLowDom,{dom:lowDom.label})+'</p>';
+  }
+
+  /* 8 Eigene Worte */
+  const fs = DOMKEYS.map(k => ({label:T.dom[k].label, str:get(k+'_txt_str','').trim(),
+    sch:get(k+'_txt_sch','').trim(), res:get(k+'_txt_res','').trim()})).filter(x=>x.str||x.sch||x.res);
+  if (fs.length) {
+    out += H(s.hOwn) + '<ul>';
+    fs.forEach(x => {
+      out += '<li><b>'+x.label+'</b>';
+      if (x.str) out += '<br><span class="badge">'+s.bStr+'</span>'+escapeHTML(x.str);
+      if (x.sch) out += '<br><span class="badge">'+s.bSch+'</span>'+escapeHTML(x.sch);
+      if (x.res) out += '<br><span class="badge">'+s.bRes+'</span>'+escapeHTML(x.res);
+      out += '</li>';
+    });
+    out += '</ul>';
+  }
+
+  /* 9 Empfehlungen */
+  const combos = [];
+  DOMKEYS.forEach(k => DIMKEYS.forEach(dim => {
+    const v = dimScore(k,dim);
+    if (v !== null) combos.push({dk:k, dom:T.dom[k].label, dim:dim, axis:T.axis[dim], v:v});
+  }));
+  combos.sort((a,b)=>a.v-b.v);
+  if (combos.length) {
+    out += H(s.hRec) + '<ol>';
+    combos.slice(0,3).forEach(c => out += '<li><b>'+c.dom+' → '+c.axis+'</b> ('+f1(c.v)+'): '+((T.tipps[c.dk]||{})[c.dim]||'')+'</li>');
+    out += '</ol>';
+    const strong = combos.slice(-3).reverse();
+    out += '<p>'+fmt(s.recBuild,{list:strong.map(c=>c.dom+' → '+c.axis+' ('+f1(c.v)+')').join(', ')})+'</p>';
+  }
+
+  /* 10 Kurzform */
+  if (doms.length && rows.length) {
+    out += H(s.hShort);
+    const top = doms[0], bot = doms[doms.length-1];
+    const srtBf = bfs.slice().sort((a,b)=>b.val-a.val);
+    out += '<p>'+fmt(s.shortPic,{arch:T.arch[rows[0].k], bf: srtBf.length ? ' — '+T.bft[srtBf[0].idx] : ''})+'</p>';
+    let t = fmt(s.shortP1,{d1:rows[0].axis, v1:f1(rows[0].v)});
+    if (rows.length>1) t += fmt(s.shortP1b,{d2:rows[1].axis, v2:f1(rows[1].v)});
+    t += fmt(s.shortP2,{top:top.label, topv:f1(top.v)});
+    if (bot !== top) {
+      const dd = DIMKEYS.map(k=>({axis:T.axis[k], v:dimScore(bot.k,k)})).filter(x=>x.v!==null).sort((a,b)=>a.v-b.v);
+      if (dd.length) t += fmt(s.shortP3,{bot:bot.label, botv:f1(bot.v), dim:dd[0].axis, dimv:f1(dd[0].v)});
+    }
+    if (srtBf.length) {
+      t += fmt(s.shortP4,{bft:T.bft[srtBf[0].idx], dim:srtBf[0].dim, v:f1(srtBf[0].val)});
+      if (srtBf.length>1) t += fmt(s.shortP4b,{dim:srtBf[srtBf.length-1].dim, v:f1(srtBf[srtBf.length-1].val)});
+      t += '. ';
+    }
+    if (sw !== null) {
+      const b = band(sw);
+      t += fmt(s.shortP5,{v:f1(sw), band:bw(sw), txt: b>=4 ? s.swBase5 : (b===3 ? s.swBase3 : s.swBase1)});
+    }
+    if (werte.length) t += fmt(s.shortP6,{list:werte.slice(0,5).join(', ')});
+    out += '<p>'+t+'</p>';
+
+    const best = DOMKEYS.map(k=>({label:T.dom[k].label, v:dimScore(k,rows[0].k)})).filter(x=>x.v!==null).sort((a,b)=>b.v-a.v);
+    out += '<p>' + fmt(s.shortRes,{d:rows[0].axis, dom: best.length?best[0].label:'–', v: best.length?f1(best[0].v):'–'})
+         + '<br>' + fmt(s.shortRisk,{t:T.risiko[rows[rows.length-1].k]}) + '</p>';
+
+    const ziel = DOMKEYS.map(k=>({label:T.dom[k].label, t:get(k+'_txt_ziel','').trim()})).filter(z=>z.t);
+    out += '<p>' + (ziel.length ? fmt(s.shortStep,{dom:ziel[0].label, t:escapeHTML(ziel[0].t)}) : s.shortNoStep) + '</p>';
+
+    out += '<p>' + fmt(s.oneLine,{d:rows[0].axis, top:top.label,
+      bot: (bot!==top) ? fmt(s.oneLineBot,{bot:bot.label}) : '',
+      band: sw!==null ? ba(sw) : T.bandAdj[0]}) + '</p>';
+  }
+  return out;
+}
+
+/* Start */
+buildUI();
+</script>
+</body>
+</html>
